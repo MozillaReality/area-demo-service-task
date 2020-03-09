@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8" />
+	<meta name='viewport' content='width=device-width, initial-scale=1, user-scalable=no'>
+	<meta name='mobile-web-app-capable' content='yes'>
+	<meta name='apple-mobile-web-app-capable' content='yes'>
+	<link rel='icon' type='image/png' sizes='32x32' href='favicon-32x32.png'>
+	<link rel='icon' type='image/png' sizes='96x96' href='favicon-96x96.png'>
+	<link rel='stylesheet' href='css/common.css'>
+	<title>AREA - Service Task Demo</title>
+</head>
+<!--
+Copyright 2018 The Immersive Web Community Group
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of
+this software and associated documentation files (the "Software"), to deal in
+the Software without restriction, including without limitation the rights to
+use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+the Software, and to permit persons to whom the Software is furnished to do so,
+subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+-->
+<body>
+<header>
+	Service Task Demo 
+	<p>
+		Click to begin. 
+		<p id="button">
+		</p>
+		<a class="back" href="./">Back</a> 
+	</p>
+	<p>
+		Click 'Enter XR' to see content
+	</p>
+	<p id="modified">
+	</p>
+</header>
+<canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" style="border: 0px none;background-color: black">
+</canvas>
+<script type="module">
+	import Module from './arosg.js'
+	import {WebXRButton} from './js/util/webxr-button.js';
+	import {QueryArgs} from './js/util/query-args.js';
+	
+	// If requested, use the polyfill to provide support for mobile devices
+	// and devices which only support WebVR.
+	import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
+	if (QueryArgs.getBool('usePolyfill', true)) {
+	    let polyfill = new WebXRPolyfill();
+	}
+	
+	document.getElementById("modified").innerHTML = document.lastModified;
+	
+	function _arrayToHeap(Module, typedArray) {
+	    let numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;
+	    let ptr = Module._malloc(numBytes);
+	    var heapBytes = new Uint8Array(Module.HEAPU8.buffer, ptr, numBytes);
+	    heapBytes.set(new Uint8Array(typedArray.buffer));
+	    return heapBytes;
+	}
+	
+	function _deleteHeap(Module, heapBytes) {
+	    Module._free(heapBytes.byteOffset);
+	}
+	    
+	let arOsgModSettings = {
+	    preRun: [],
+	    postRun: [],
+	    print: function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.log(text);
+	    },
+	    printErr: function(text) {
+            if (arguments.length > 1) text = Array.prototype.slice.call(arguments).join(' ');
+            console.error(text);
+	    },
+	    canvas: (function() {
+            var canvas = document.getElementById('canvas');
+
+            // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+            // application robust, you may want to override this behavior before shipping!
+            // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+            canvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+	
+            return canvas;
+	    })(),
+	    preinitializedWebGLContext: {},
+	    onRuntimeInitialized: function() {
+	        const version = arOsgMod.ccall('arOSGGetVersion', 'number');
+	        console.log('arOSG version 0x' + version.toString(16) + '.');
+	    }
+	};
+	
+//         function createCanvas() {
+//             let canvas = document.createElement('canvas');
+//             //canvas.setAttribute('id', 'canvas');
+//             // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+//             // application robust, you may want to override this behavior before shipping!
+//             // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+//             webglCanvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+//             return canvas;
+//         }
+	
+	// Creates a WebGL context and initializes it with some common default state.
+	function createWebGLContext(webglCanvas, glAttribs) {
+	    glAttribs = glAttribs || {alpha: false, depth:true, stencil: false, antialias: false};
+	    let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
+	    let context = null;
+	    for (let contextType of contextTypes) {
+	        context = webglCanvas.getContext(contextType, glAttribs);
+	        if (context) {
+	            break;
+	        }
+	    }
+	    if (!context) {
+	        let webglType = (glAttribs.webgl2 ? 'WebGL 2' : 'WebGL');
+	        console.error('This browser does not support ' + webglType + '.');
+	        return null;
+	    }
+	    return context;
+	}
+	
+	// Create a WebGL context to render with, initialized to be compatible
+	// with the XRDisplay we're presenting to.
+	//         arOsgModSettings.canvas = createCanvas();
+	arOsgModSettings.preinitializedWebGLContext = createWebGLContext(arOsgModSettings.canvas, {
+	    xrCompatible: true,
+	    // WebGL 2 in wasm uses SharedArrayBuffer, which is currently disabled in browsers due to Spectre.
+	    // Once SharedArrayBuffer is re-enabled or wasm changes its implementation, WebGL 2 can be re-enabled.
+	    //webgl2: true
+	});
+	
+	// Pre-populate settings for the WASM module.
+	const arOsgMod = Module(arOsgModSettings);
+	
+    // XR globals.
+    let xrButton = null;
+    let xrRefSpace = null;
+
+    // Renderer globals.
+    let gl = null;
+    let arOsg = null; // Holds the instance pointer.
+    let modelIndex0 = -1;
+    let modelIndex1 = -1;
+
+    // Checks to see if WebXR is available and, if so, queries a list of
+    // XRDevices that are connected to the system.
+    function initXR() {
+        // Adds a helper button to the page that indicates if any XRDevices are
+        // available and let's the user pick between them if there's multiple.
+        xrButton = new WebXRButton({
+            onRequestSession: onRequestSession,
+            onEndSession: onEndSession
+        });
+        document.getElementById('button').appendChild(xrButton.domElement);
+    
+        // Is WebXR available on this UA?
+        if (navigator.xr) {
+            // If the device allows creation of exclusive sessions set it as the
+            // target of the 'Enter XR' button.
+            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
+                xrButton.enabled = supported;
+            });
+        }
+    }
+	
+    // Called when the user selects a device to present to. In response we
+    // will request an exclusive session from that device.
+    function onRequestSession() {
+	    return navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+	}
+
+    function getGpuInfo() {
+        let gl = arOsgMod.preinitializedWebGLContext;
+        if (!gl) return '(no GL: ' + arOsgMod.webGLErrorReason + ')';
+    
+        let glInfo = '';
+        let debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debugInfo) glInfo += gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL) + ' ' + gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) + '/';
+        glInfo += gl.getParameter(gl.VENDOR) + ' ' + gl.getParameter(gl.RENDERER);
+        glInfo += ' ' + gl.getParameter(gl.VERSION);
+        glInfo += ', ' + gl.getParameter(gl.SHADING_LANGUAGE_VERSION);
+        if (arOsgMod.softwareWebGL) glInfo += ' (software)';
+        return glInfo;
+    }
+	
+//     function detectWebGL() {
+//         var canvas = arOsgMod.canvas || document.createElement("canvas");
+//         var names = ["webgl2", "webgl", "experimental-webgl"];
+//         function testError(e) { arOsgMod.webGLErrorReason = e.statusMessage; };
+//         canvas.addEventListener("webglcontextcreationerror", testError, false);
+//         try {
+//             for(var failIfMajorPerformanceCaveat = 1; failIfMajorPerformanceCaveat >= 0; --failIfMajorPerformanceCaveat) {
+//                 for(var i in names) {
+//                     try {
+//                         var context = canvas.getContext(names[i], {antialias:false,alpha:false,depth:true,stencil:true,failIfMajorPerformanceCaveat:!!failIfMajorPerformanceCaveat});
+//                         arOsgMod.preinitializedWebGLContext = context;
+//                         arOsgMod.softwareWebGL = !failIfMajorPerformanceCaveat;
+//                         if (context && typeof context.getParameter == "function") {
+//                             if (typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext && names[i] == 'webgl2') {
+//                                 return 2;
+//                             } else {
+//                                 // We were able to precreate only a WebGL 1 context, remove support for WebGL 2 from the rest of the page execution.
+//                                 WebGL2RenderingContext = undefined;
+//                                 return 1;
+//                             }
+//                         }
+//                     } catch(e) { arOsgMod.webGLErrorReason = e.toString(); }
+//                 }
+//             }
+//         } finally {
+//             canvas.removeEventListener("webglcontextcreationerror", testError, false);
+//         }
+//         return 0;
+//     }
+	
+    // Called when we've successfully acquired a XRSession. In response we
+    // will set up the necessary session state and kick off the frame loop.
+    function onSessionStarted(session) {
+        // This informs the 'Enter XR' button that the session has started and
+        // that it should display 'Exit XR' instead.
+        xrButton.setSession(session);
+
+        // Listen for the sessions 'end' event so we can respond if the user
+        // or UA ends the session for any reason.
+        session.addEventListener('end', onSessionEnded);
+
+        gl = arOsgMod.preinitializedWebGLContext;
+
+//        Module.WEBGL_VERSION = detectWebGL();
+        console.log(getGpuInfo());
+// 	      requiredWebGLVersion = 2;
+// 	      if (!Module.WEBGL_VERSION || Module.WEBGL_VERSION < requiredWebGLVersion) {
+// 		      showErrorDialog('Your browser does not support WebGL ' + requiredWebGLVersion + '<br>Error reason: ' + (Module.webGLErrorReason || 'Unknown') + '. Try updating your browser and/or graphics card drivers.<br>Current renderer: ' + getGpuInfo());
+// 		      return;
+// 	      }
+
+        // Here init renderer and GPU resources.
+
+        // Use the new WebGL context to create a XRWebGLLayer and set it as the
+        // sessions baseLayer. This allows any content rendered to the layer to
+        // be displayed on the XRDevice.
+        session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
+
+        // Get a frame of reference, which is required for querying poses. In
+        // this case an 'local' frame of reference means that all poses will
+        // be relative to the location where the XRDevice was first detected.
+        session.requestReferenceSpace('local').then((refSpace) => {
+            xrRefSpace = refSpace;
+
+            // Inform the session that we're ready to begin drawing.
+            session.requestAnimationFrame(onXRFrame);
+        });
+    }
+	
+	      // Called when the user clicks the 'Exit XR' button. In response we end
+	      // the session.
+    function onEndSession(session) {
+        session.end();
+    }
+	
+    // Called either when the user has explicitly ended the session (like in
+    // onEndSession()) or when the UA has ended the session for any reason.
+    // At this point the session object is no longer usable and should be
+    // discarded.
+    function onSessionEnded(event) {
+        xrButton.setSession(null);
+    
+        // Here should discard the WebGL context too.
+        arOsgMod.ccall('arOSGFinal', null, ['number'], [arOsg]);
+        arOsg = null;
+    }
+	
+    // Called every time the XRSession requests that a new frame be drawn.
+    function onXRFrame(t, frame) {
+        let session = frame.session;
+
+        // Per-frame scene setup.
+        //NOP
+
+        // Inform the session that we're ready for the next frame.
+        session.requestAnimationFrame(onXRFrame);
+
+        if (gl === null) {
+            console.error('onXRFrame: gl is null.');
+            return;
+        }
+        let glLayer = session.renderState.baseLayer;
+        if (glLayer === null) {
+            console.error('onXRFrame: glLayer is null.');
+            return;
+        }
+
+        // If we do have a valid pose, bind the WebGL layer's framebuffer,
+        // which is where any content to be displayed on the XRDevice must be
+        // rendered.
+        gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
+
+        // One-time init.
+        if (arOsg === null) {
+            arOsg = arOsgMod.ccall('arOSGInit', 'number');
+            console.log('arOsg: 0x' + arOsg.toString(16));
+
+            console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
+            arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
+            let loadErr = 0;
+            modelIndex0 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'model0.dat']);
+            if (modelIndex0 < 0) console.error('Error loading model0.dat.');
+            else console.log('modelIndex0 is ' + modelIndex0 + '.');
+            modelIndex1 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'model1.dat']);
+            if (modelIndex1 < 0) console.error('Error loading model1.dat.');
+            else console.log('modelIndex1 is ' + modelIndex1 + '.');
+        }
+
+        // Get the XRDevice pose relative to the Frame of Reference we created
+        // earlier.
+        let pose = frame.getViewerPose(xrRefSpace);
+
+        // Getting the pose may fail if, for example, tracking is lost. So we
+        // have to check to make sure that we got a valid pose before attempting
+        // to render with it. If not in this case we'll just leave the
+        // framebuffer cleared, so tracking loss means the scene will simply
+        // disappear.
+        if (pose) {
+            // Clear the framebuffer
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+            // Loop through each of the views reported by the frame and draw them
+            // into the corresponding viewport.
+            for (let view of pose.views) {
+                let viewport = glLayer.getViewport(view);
+                gl.viewport(viewport.x, viewport.y, viewport.width, viewport.height);
+                arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, viewport.x, viewport.y, viewport.width, viewport.height]);
+
+                let p = _arrayToHeap(arOsgMod, view.projectionMatrix);
+                arOsgMod.ccall('arOSGSetProjectionf', null, ['number', 'number'], [arOsg, p.byteOffset]);
+                _deleteHeap(arOsgMod, p);
+
+                let v = _arrayToHeap(arOsgMod, view.transform.inverse.matrix);
+                arOsgMod.ccall('arOSGSetViewf', null, ['number', 'number'], [arOsg, v.byteOffset]);
+                _deleteHeap(arOsgMod, v);
+
+                arOsgMod.ccall('arOSGDraw', null, ['number'], [arOsg]);
+            }
+        } else {
+            // No pose, draw nothing..
+        }
+
+        // Per-frame scene teardown.
+        //NOP
+    }
+	
+    // Start the XR application.
+    initXR();
+</script>
+</body>
+</html>
