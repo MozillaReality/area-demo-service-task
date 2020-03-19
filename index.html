@@ -152,6 +152,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let arOsg = null; // Holds the instance pointer.
     let modelIndex0 = -1;
     let modelIndex1 = -1;
+    let modelIndex2 = -1;
 
     // Checks to see if WebXR is available and, if so, queries a list of
     // XRDevices that are connected to the system.
@@ -252,15 +253,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // be displayed on the XRDevice.
         session.updateRenderState({ baseLayer: new XRWebGLLayer(session, gl) });
 
-        // Get a frame of reference, which is required for querying poses. In
-        // this case an 'local' frame of reference means that all poses will
-        // be relative to the location where the XRDevice was first detected.
-        session.requestReferenceSpace('local').then((refSpace) => {
+        // Get a frame of reference, which is required for querying poses.
+        // 'local' frame of reference means that all poses will be relative to
+        // the location where the XRDevice was first detected.
+        // 'local-floor' provides a floor-relative space and will always be
+        // supported for immersive sessions. It  will not, however, provide
+        // boundaries and generally expects the user to stand in one place.
+        // If the device doesn't have a way of determining the floor level
+        // (for example, with a 3DoF device) then it will return an emulated
+        // local-floor space, where the view is translated up by a static height
+        //  so that the scene still renders in approximately the right place.
+        session.requestReferenceSpace('local-floor').then((refSpace) => {
             xrRefSpace = refSpace;
 
             // Inform the session that we're ready to begin drawing.
             session.requestAnimationFrame(onXRFrame);
-        });
+        }).catch(() => {
+            session.requestReferenceSpace('local').then((refSpace) => {
+                // Fake a floor height by moving the camera -1.6m in y.
+                // offseting the reference space with a negative y value:
+                refSpace = refSpace.getOffsetReferenceSpace(new XRRigidTransform({y: -1.6}));
+                xrRefSpace = refSpace;
+
+                 // Inform the session that we're ready to begin drawing.
+                session.requestAnimationFrame(onXRFrame);
+            })
+        })
     }
 	
 	      // Called when the user clicks the 'Exit XR' button. In response we end
@@ -314,12 +332,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
             arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
             let loadErr = 0;
-            modelIndex0 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'model0.dat']);
-            if (modelIndex0 < 0) console.error('Error loading model0.dat.');
+            modelIndex0 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/binmixer.dat']);
+            if (modelIndex0 < 0) console.error('Error loading models/binmixer.dat.');
             else console.log('modelIndex0 is ' + modelIndex0 + '.');
-            modelIndex1 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'model1.dat']);
-            if (modelIndex1 < 0) console.error('Error loading model1.dat.');
+            modelIndex1 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/chiller.dat']);
+            if (modelIndex1 < 0) console.error('Error loading models/chiller.dat.');
             else console.log('modelIndex1 is ' + modelIndex1 + '.');
+            modelIndex2 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/turbogenerator.dat']);
+            if (modelIndex2 < 0) console.error('Error loading models/turbogenerator.dat.');
+            else console.log('modelIndex2 is ' + modelIndex2 + '.');
         }
 
         // Get the XRDevice pose relative to the Frame of Reference we created
