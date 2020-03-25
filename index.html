@@ -34,13 +34,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <header>
 	Service Task Demo 
 	<p>
-		Click to begin. 
-		<p id="button">
-		</p>
-		<a class="back" href="./">Back</a> 
+		Click to begin.
 	</p>
-	<p>
-		Click 'Enter XR' to see content
+	<p id="button">
 	</p>
 	<p id="modified">
 	</p>
@@ -72,7 +68,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	function _deleteHeap(Module, heapBytes) {
 	    Module._free(heapBytes.byteOffset);
 	}
-	    
+
+    function waitFor(conditionFunction) {
+        const poll = resolve => {
+            if (conditionFunction()) resolve();
+            else setTimeout(() => poll(resolve), 400);
+        }
+        return new Promise(poll);
+    }
+
+    let arOsgReady = false;
 	let arOsgModSettings = {
 	    preRun: [],
 	    postRun: [],
@@ -98,6 +103,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	    onRuntimeInitialized: function() {
 	        const version = arOsgMod.ccall('arOSGGetVersion', 'number');
 	        console.log('arOSG version 0x' + version.toString(16) + '.');
+	        arOsgReady = true;
 	    }
 	};
 	
@@ -158,27 +164,48 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // XRDevices that are connected to the system.
     function initXR() {
         // Adds a helper button to the page that indicates if any XRDevices are
-        // available and let's the user pick between them if there's multiple.
+        // available and lets the user pick between them if there are multiple.
         xrButton = new WebXRButton({
-            onRequestSession: onRequestSession,
-            onEndSession: onEndSession
+            onRequestSession: (() => onRequestSession('immersive-ar')),
+            onEndSession: onEndSession,
+            textEnterXRTitle: "START AR",
+            textXRNotFoundTitle: "XR NOT FOUND",
+            textExitXRTitle: "EXIT  AR"
         });
         document.getElementById('button').appendChild(xrButton.domElement);
-    
+        
         // Is WebXR available on this UA?
         if (navigator.xr) {
             // If the device allows creation of exclusive sessions set it as the
             // target of the 'Enter XR' button.
-            navigator.xr.isSessionSupported('immersive-vr').then((supported) => {
-                xrButton.enabled = supported;
+            //.then((supported) => {waitFor(() => arOsgReady === true)})
+            navigator.xr.isSessionSupported('immersive-ar').then((isSupported) => {
+                if (isSupported) {
+                    console.log('immersive-ar is supported.');
+                    return true;
+                }
+                // Fall back to VR if AR not available.
+                xrButton.remove();
+                xrButton = new WebXRButton({
+                    onRequestSession: (() => onRequestSession('immersive-vr')),
+                    onEndSession: onEndSession,
+                    textEnterXRTitle: "START VR",
+                    textXRNotFoundTitle: "XR NOT FOUND",
+                    textExitXRTitle: "EXIT  VR"
+                });
+                document.getElementById('button').appendChild(xrButton.domElement);
+                return navigator.xr.isSessionSupported('immersive-vr');
+            }).then((isSupported) => {
+                xrButton.enabled = isSupported;
             });
         }
     }
 	
     // Called when the user selects a device to present to. In response we
     // will request an exclusive session from that device.
-    function onRequestSession() {
-	    return navigator.xr.requestSession('immersive-vr').then(onSessionStarted);
+    function onRequestSession(sessionType) {
+        console.log('Requesting an ' + sessionType + ' session.');
+	    return navigator.xr.requestSession(sessionType).then(onSessionStarted);
 	}
 
     function getGpuInfo() {
@@ -277,8 +304,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
                  // Inform the session that we're ready to begin drawing.
                 session.requestAnimationFrame(onXRFrame);
-            })
-        })
+            });
+        });
     }
 	
 	      // Called when the user clicks the 'Exit XR' button. In response we end
