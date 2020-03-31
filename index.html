@@ -178,7 +178,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (navigator.xr) {
             // If the device allows creation of exclusive sessions set it as the
             // target of the 'Enter XR' button.
-            //.then((supported) => {waitFor(() => arOsgReady === true)})
             navigator.xr.isSessionSupported('immersive-ar').then((isSupported) => {
                 if (isSupported) {
                     console.log('immersive-ar is supported.');
@@ -196,7 +195,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 document.getElementById('button').appendChild(xrButton.domElement);
                 return navigator.xr.isSessionSupported('immersive-vr');
             }).then((isSupported) => {
-                xrButton.enabled = isSupported;
+                // Ensure loading is complete before enabling XR.
+                waitFor(() => arOsgReady === true).then(() => {
+                    xrButton.enabled = isSupported;
+                });
             });
         }
     }
