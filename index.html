@@ -33,7 +33,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <body>
 <header>
 	Service Task Demo 
-	<p>
+	<p id="prompt">
 		Click to begin.
 	</p>
 	<p id="button">
@@ -44,6 +44,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" style="border: 0px none;background-color: black">
 </canvas>
 <script type="module">
+    // SharedArrayBuffer is required.
+    try {
+        let test = new SharedArrayBuffer(1);
+    } catch(error) {
+        document.getElementById("prompt").innerHTML = "Multi-threaded WebAssembly is required, but is not available because shared memory is not enabled in your browser. On Firefox, please enable javascript.options.shared_memory in <a href=\"about:config\">about:config</a>, or on Chrome please enable <a href=\"chrome://flags/#enable-webassembly-threads\">chrome://flags/#enable-webassembly-threads</a>.";
+        throw error;
+    }
+
 	import Module from './arosg.js'
 	import {WebXRButton} from './js/util/webxr-button.js';
 	import {QueryArgs} from './js/util/query-args.js';
