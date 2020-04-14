@@ -38,6 +38,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	</p>
 	<p id="button">
 	</p>
+	<p id="native">
+	</p>
 	<p id="modified">
 	</p>
 </header>
@@ -61,6 +63,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	import WebXRPolyfill from './js/third-party/webxr-polyfill/build/webxr-polyfill.module.js';
 	if (QueryArgs.getBool('usePolyfill', true)) {
 	    let polyfill = new WebXRPolyfill();
+	    document.getElementById("native").innerHTML = 'Using WebXR polyfill. <a href="?usePolyfill=0">Toggle</a>';
+	} else {
+	    document.getElementById("native").innerHTML = 'Using native WebXR. <a href="?usePolyfill=1">Toggle</a>';
 	}
 	
 	document.getElementById("modified").innerHTML = document.lastModified;
@@ -390,7 +395,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // framebuffer cleared, so tracking loss means the scene will simply
         // disappear.
         if (pose) {
-            // Clear the framebuffer
+        
+            for (let i = 0, length = session.inputSources.length; i < length; i++) {
+                let inputSource = session.inputSources[i];
+                let targetRayPose = frame.getPose(inputSource.targetRaySpace, xrRefSpace);
+
+                // We may not get a pose back in cases where the input source has lost
+                // tracking or does not know where it is relative to the given frame
+                // of reference.
+                // Also, don't show ray unless target ray mode is 'tracked-pointer'.
+                if (!targetRayPose || inputSource.targetRayMode != 'tracked-pointer') {
+                    arOsgMod.ccall('arOSGHideRay', null, ['number', 'number'], [arOsg, i]);
+                } else {
+                    let p = _arrayToHeap(arOsgMod, targetRayPose.transform.matrix);
+                    arOsgMod.ccall('arOSGShowRayAndSetPose', null, ['number', 'number', 'number'], [arOsg, i, p.byteOffset]);
+                    _deleteHeap(arOsgMod, p);
+                }
+            }
+ 
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
             // Loop through each of the views reported by the frame and draw them

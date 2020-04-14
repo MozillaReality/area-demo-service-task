@@ -133,6 +133,16 @@ AR_OSG_EXTERN     AROSG *arOSGInit();
 
 /*!
     @function
+    @abstract   Dispose of an AROSG settings structure.
+    @discussion
+        If you have finished with an AROSG settings structure in your running program,
+        you can unload its internal data by calling arOSGFinal.
+    @param      arOsg Pointer to the AROSG settings structure to be disposed of. (See arOSGInit().)
+*/
+AR_OSG_EXTERN     void arOSGFinal(AROSG *arOsg);
+
+/*!
+    @function
     @abstract   Load an OSG model using a "model description file".
     @discussion -
         The format of this file is a simple text file. Comments may be
@@ -560,22 +570,6 @@ AR_OSG_EXTERN     int arOSGSetModelOutline(AROSG *arOsg, const int index, const 
     @result     1 if an intersection was found, 0 if no intersection was found, or in case of error, a value less than 0.
     @availability Available in ARToolKit v4.5.1 and later.
 */
-AR_OSG_EXTERN     int arOSGGetModelIntersection(AROSG *arOsg, const int index, const double p1[3], const double p2[3]);
-
-/*!
-    @function
-    @abstract   Determine if a model is intersected by a line segment.
-    @discussion
-        This calculates the intersection between a line segment (defined by two points in world coordinates)
-        and a model (actually an OSG node and subnodes). If an intersection is found, different data types
-        can be returned by providing pointers in parameters nodeType, nodeName, and intersectionCoords.
-    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
-    @param      index The index of the model to calculate the intersection of. See arOSGLoadModel().
-    @param      p1 Required; a vector specifying the location of one end of the line segment, in world coordinates.
-    @param      p2 Required; a vector specifying the location of the other end of the line segment, in world coordinates.
-    @result     1 if an intersection was found, 0 if no intersection was found, or in case of error, a value less than 0.
-    @availability Available in ARToolKit v4.5.1 and later.
-*/
 AR_OSG_EXTERN     int arOSGGetModelIntersectionf(AROSG *arOsg, const int index, const float p1[3], const float p2[3]);
 
 /*!
@@ -685,15 +679,15 @@ AR_OSG_EXTERN     void arOSGHandleMouseMove(AROSG *arOsg, int x, int y);
 */
 AR_OSG_EXTERN     void arOSGHandleKeyboard(AROSG *arOsg, int key, int x, int y);
 
-/*!
-    @function
-    @abstract   Dispose of an AROSG settings structure.
-    @discussion
-        If you have finished with an AROSG settings structure in your running program,
-        you can unload its internal data by calling arOSGFinal.
-    @param      arOsg Pointer to the AROSG settings structure to be disposed of. (See arOSGInit().)
-*/
-AR_OSG_EXTERN     void arOSGFinal(AROSG *arOsg);
+#define AR_OSG_RAYS_MAX 2
+AR_OSG_EXTERN     void arOSGShowRayAndSetPose(AROSG *arOsg, int ray, float pose[16]);
+AR_OSG_EXTERN     void arOSGHideRay(AROSG *arOsg, int ray);
+
+// typedef struct {
+//     float position[3];
+// } AROSG_Ray_Intersection_t;
+// 
+// AR_OSG_EXTERN     int arOSGGetRayIntersections(AROSG *arOsg, AROSG_Ray_Intersection_t *intersection);
 
 #ifdef __cplusplus
 }

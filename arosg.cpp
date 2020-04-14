@@ -42,6 +42,7 @@
 #include <string.h>
 #include <osg/GL>
 #include <osg/Node>
+#include <osg/ShapeDrawable>
 #include <osg/FrontFace>
 #include <osg/MatrixTransform>
 #include <osg/LightModel>
@@ -71,6 +72,9 @@
 #  include <emscripten/html5.h>
 #endif
 
+#define AR_OSG_NODE_MASK_DRAWABLE 0x01
+#define AR_OSG_NODE_MASK_SELECTABLE 0x02
+
 class Logger;
 
 struct _AROSG {
@@ -79,6 +83,7 @@ struct _AROSG {
     osg::ref_ptr<osg::Group> sg;
     int prevIndex;
     osg::ref_ptr<osg::MatrixTransform> models[AR_OSG_MODELS_MAX];
+    osg::ref_ptr<osg::MatrixTransform> rays[AR_OSG_RAYS_MAX];
     int frontFaceWinding;
     double time;
 #ifndef OSG_GL_FIXED_FUNCTION_AVAILABLE
@@ -435,7 +440,24 @@ extern "C" {
 
         return (arOsg);
     }
-    
+
+    void AR_OSG_EXTDEF arOSGFinal(AROSG *arOsg)
+    {
+        if (!arOsg) return;
+#ifdef __EMSCRIPTEN__
+        if (emscripten_webgl_make_context_current(arOsg->webGLCtx) != EMSCRIPTEN_RESULT_SUCCESS) {
+            ARLOGw("Error in emscripten_webgl_make_context_current().\n");
+        };
+#endif
+        
+        //if (arOsg->viewer.valid()) arOsg->viewer->unref();
+        //if (arOsg->sg.valid()) arOsg->sg->unref();
+        osg::setNotifyHandler(nullptr);
+        delete arOsg->logger;
+        arOsg->logger = nullptr;
+        free (arOsg);
+    }
+
     static char *get_buff(char *buf, int n, FILE *fp, int skipblanks)
     {
         char *ret;
@@ -1158,60 +1180,6 @@ extern "C" {
         return (0);
     }
     
-    int AR_OSG_EXTDEF arOSGGetModelIntersection(AROSG *arOsg, const int index, const double p1[3], const double p2[3])
-    {
-        if (!arOsg || !p1 || !p2) return (-1);
-#ifdef __EMSCRIPTEN__
-        if (emscripten_webgl_make_context_current(arOsg->webGLCtx) != EMSCRIPTEN_RESULT_SUCCESS) {
-            ARLOGw("Error in emscripten_webgl_make_context_current().\n");
-        };
-#endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
-        if (!arOsg->models[index]) {
-            ARLOGe("Error: model not found while attempting to get model intersection.\n");
-            return (-1);
-        }
-        
-        osgUtil::LineSegmentIntersector::Intersections intersections;        
-        osg::ref_ptr< osgUtil::LineSegmentIntersector > intersector = new osgUtil::LineSegmentIntersector(osg::Vec3d(p1[0], p1[1], p1[2]), osg::Vec3d(p2[0], p2[1], p2[2]));
-        osgUtil::IntersectionVisitor iv(intersector.get());
-        arOsg->models[index]->accept(iv);
-        if (intersector->containsIntersections()) {
-            /*
-             @param      nodeType If supplied, on return the location pointed to will be filled with a pointer to a C string
-             containing the name of the node type, e.g. "Node" or "Geode", or filled with nullptr if this could not be determined.
-             If this information is not required, pass nullptr for this parameter.
-             @param      nodeName If supplied, on return the location pointed to will be filled with a pointer to a C string
-             containing the user-defined name of the actual node, provided one was defined, e.g. "MyCoolNode",
-             or filled with nullptr if no name had been assigned.
-             If this information is not required, pass nullptr for this parameter.
-             @param      intersectionCoords If supplied, should point to an array of 3 doubles. On return the location pointed
-             to will be filled with a the coordinates of the interection in world coordinate space.
-             or filled with nullptr if no name had been assigned.
-             If this information is not required, pass nullptr for this parameter.             
-             */
-            /*char **nodeType, char **nodeName, double *intersectionCoords
-            intersections = intersector->getIntersections();
-            for (osgUtil::LineSegmentIntersector::Intersections::iterator hitr = intersections.begin(); hitr != intersections.end(); ++hitr) {
-                if (nodeType) {
-                    if (hitr->drawable.valid()) {
-                        *nodeType = strdup(hitr->drawable->className());
-                    } else *nodeType = nullptr;
-                }
-                if (nodeName) {
-                    if (!hitr->nodePath.empty() && !(hitr->nodePath.back()->getName().empty())) {
-                        *nodeType = strdup(hitr->nodePath.back()->getName().c_str());
-                    } else *nodeName = nullptr;
-                }
-                if (intersectionCoords) {
-                    double *ic = hitr->getWorldIntersectPoint().ptr();
-                    intersectionCoords[0] = ic[0]; intersectionCoords[1] = ic[1]; intersectionCoords[2] = ic[2];
-                }
-            }*/
-            return (1);
-        } else return (0);
-    }
-    
     int AR_OSG_EXTDEF arOSGGetModelIntersectionf(AROSG *arOsg, const int index, const float p1[3], const float p2[3])
     {
         if (!arOsg || !p1 || !p2) return (-1);
@@ -1375,21 +1343,57 @@ extern "C" {
         }
     }
     
-    void AR_OSG_EXTDEF arOSGFinal(AROSG *arOsg)
+    #define AR_OSG_RAYS_MAX 2
+    void AR_OSG_EXTDEF arOSGShowRayAndSetPose(AROSG *arOsg, int ray, float pose[16])
     {
-        if (!arOsg) return;
-#ifdef __EMSCRIPTEN__
-        if (emscripten_webgl_make_context_current(arOsg->webGLCtx) != EMSCRIPTEN_RESULT_SUCCESS) {
-            ARLOGw("Error in emscripten_webgl_make_context_current().\n");
-        };
-#endif
+        const float thickness = 0.002f;
+        const float color[4] = {0.0f, 0.8f, 1.0f, 0.8f};
+        const float maxRayLength = 30.0f;
         
-        //if (arOsg->viewer.valid()) arOsg->viewer->unref();
-        //if (arOsg->sg.valid()) arOsg->sg->unref();
-        osg::setNotifyHandler(nullptr);
-        delete arOsg->logger;
-        arOsg->logger = nullptr;
-        free (arOsg);
+        static float demo[AR_OSG_RAYS_MAX] = {0.0f};
+        if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX || !pose) return;
+        
+        if (!arOsg->rays[ray]) {
+            arOsg->rays[ray] = new osg::MatrixTransform;
+            osg::ref_ptr<osg::ShapeDrawable> raySD = new osg::ShapeDrawable;
+            raySD->setShape(new osg::Box(osg::Vec3(0.0f, 0.0f, -0.5f), thickness, thickness, 1.0f));
+            raySD->setColor(osg::Vec4f(color[0], color[1], color[2], color[3]));
+            osg::ref_ptr<osg::Geode> rayG = new osg::Geode;
+            rayG->addDrawable(raySD.get());
+            arOsg->rays[ray]->addChild(rayG.get());
+            arOsg->sg->addChild(arOsg->rays[ray].get());
+        }
+        arOsg->rays[ray]->setMatrix(osg::Matrixf(pose));
+        arOsg->rays[ray]->setNodeMask(~AR_OSG_NODE_MASK_SELECTABLE); // Set all bits except AR_OSG_NODE_MASK_SELECTABLE.
+        
+        // Now work out what the ray is hitting, if anything.
+        // Near end of line segment is just origin of ray pose.
+        // Far end of line segment is origin plus  direction of ^a vector, multiplied by -maxRayLength.
+        bool hit = false;
+        osg::Vec3f hitNorm;
+        osg::Vec3f p0 = osg::Vec3f(pose[12], pose[13], pose[14]);
+        osg::Vec3f p1 = p0 - osg::Vec3f(pose[8], pose[9], pose[10])*maxRayLength;
+        osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector = new osgUtil::LineSegmentIntersector(p0, p1);
+        osgUtil::IntersectionVisitor iv(intersector.get());
+        iv.setTraversalMask(AR_OSG_NODE_MASK_SELECTABLE); // Intersect only items with AR_OSG_NODE_MASK_SELECTABLE set.
+        arOsg->sg->accept(iv);
+        if (intersector->containsIntersections()) {
+            hit = true;
+            p1 = intersector->getIntersections().begin()->getWorldIntersectPoint();
+            hitNorm = intersector->getIntersections().begin()->getWorldIntersectNormal();
+        }
+        osg::ref_ptr<osg::ShapeDrawable> raySD = static_cast<osg::ShapeDrawable *>(static_cast<osg::Geode *>(arOsg->rays[ray]->getChild(0))->getDrawable(0));
+        
+        float length = (p1 - p0).length();
+        raySD->setShape(new osg::Box(osg::Vec3(0.0f, 0.0f, -length/2.0f), thickness, thickness, length)); // Ray points in -z direction.
+        raySD->build();
+    }
+    
+    void AR_OSG_EXTDEF arOSGHideRay(AROSG *arOsg, int ray)
+    {
+        if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX) return;
+        if (!arOsg->rays[ray]) return;
+        arOsg->rays[ray]->setNodeMask(0x0);
     }
     
 } // extern "C"

@@ -202,7 +202,7 @@ Module['FS_createPath']('/', 'models', true, true);
   }
 
  }
- loadPackage({"files": [{"start": 0, "audio": 0, "end": 8196, "filename": "/models/.DS_Store"}, {"start": 8196, "audio": 0, "end": 8267, "filename": "/models/binmixer.dat"}, {"start": 8267, "audio": 0, "end": 8337, "filename": "/models/chiller.dat"}, {"start": 8337, "audio": 0, "end": 15999453, "filename": "/models/turbogenerator-lp.glb"}, {"start": 15999453, "audio": 0, "end": 17971017, "filename": "/models/binmixer-lp.glb"}, {"start": 17971017, "audio": 0, "end": 18924873, "filename": "/models/chiller-lp.glb"}, {"start": 18924873, "audio": 0, "end": 18924952, "filename": "/models/turbogenerator.dat"}], "remote_package_size": 18924952, "package_uuid": "c17b0c59-a101-4e53-b238-e0fcc7c52084"});
+ loadPackage({"files": [{"start": 0, "audio": 0, "end": 8196, "filename": "/models/.DS_Store"}, {"start": 8196, "audio": 0, "end": 8267, "filename": "/models/binmixer.dat"}, {"start": 8267, "audio": 0, "end": 8337, "filename": "/models/chiller.dat"}, {"start": 8337, "audio": 0, "end": 15999453, "filename": "/models/turbogenerator-lp.glb"}, {"start": 15999453, "audio": 0, "end": 17971017, "filename": "/models/binmixer-lp.glb"}, {"start": 17971017, "audio": 0, "end": 18924873, "filename": "/models/chiller-lp.glb"}, {"start": 18924873, "audio": 0, "end": 18924952, "filename": "/models/turbogenerator.dat"}], "remote_package_size": 18924952, "package_uuid": "534dec21-1be2-49ec-ac9d-7e9433d50022"});
 
 })();
 
@@ -798,8 +798,8 @@ var wasmMemory;
 // In the wasm backend, we polyfill the WebAssembly object,
 // so this creates a (non-native-wasm) table for us.
 var wasmTable = new WebAssembly.Table({
-  'initial': 13302,
-  'maximum': 13302 + 0,
+  'initial': 13306,
+  'maximum': 13306 + 0,
   'element': 'anyfunc'
 });
 
@@ -1392,11 +1392,11 @@ function updateGlobalBufferAndViews(buf) {
 }
 
 var STATIC_BASE = 1024,
-    STACK_BASE = 5902640,
+    STACK_BASE = 5902864,
     STACKTOP = STACK_BASE,
-    STACK_MAX = 659760,
-    DYNAMIC_BASE = 5902640,
-    DYNAMICTOP_PTR = 658800;
+    STACK_MAX = 659984,
+    DYNAMIC_BASE = 5902864,
+    DYNAMICTOP_PTR = 659024;
 
 assert(STACK_BASE % 16 === 0, 'stack must start aligned');
 assert(DYNAMIC_BASE % 16 === 0, 'heap must start aligned');
@@ -1944,11 +1944,11 @@ var tempI64;
 // === Body ===
 
 var ASM_CONSTS = {
-  627668: function() {throw 'Canceled!'},  
- 627820: function() {postMessage({cmd : 'processQueuedMainThreadWork'})},  
- 627871: function($0) {if (!ENVIRONMENT_IS_PTHREAD) { if (!PThread.pthreads[$0] || !PThread.pthreads[$0].worker) { return 0; } PThread.pthreads[$0].worker.postMessage({cmd : 'processThreadQueue'}); } else { postMessage({targetThread : $0, cmd : 'processThreadQueue'}); } return 1;},  
- 628239: function() {return !!(Module['canvas'])},  
- 628275: function() {noExitRuntime = true}
+  627892: function() {throw 'Canceled!'},  
+ 628044: function() {postMessage({cmd : 'processQueuedMainThreadWork'})},  
+ 628095: function($0) {if (!ENVIRONMENT_IS_PTHREAD) { if (!PThread.pthreads[$0] || !PThread.pthreads[$0].worker) { return 0; } PThread.pthreads[$0].worker.postMessage({cmd : 'processThreadQueue'}); } else { postMessage({targetThread : $0, cmd : 'processThreadQueue'}); } return 1;},  
+ 628463: function() {return !!(Module['canvas'])},  
+ 628499: function() {noExitRuntime = true}
 };
 
 // Avoid creating a new array
@@ -1980,7 +1980,7 @@ function _emscripten_asm_const_iii(code, sigPtr, argbuf) {
 
 
 
-// STATICTOP = STATIC_BASE + 658736;
+// STATICTOP = STATIC_BASE + 658960;
 /* global initializers */ if (!ENVIRONMENT_IS_PTHREAD) __ATINIT__.push({ func: function() { ___wasm_call_ctors() } });
 
 
@@ -2027,7 +2027,7 @@ function _emscripten_asm_const_iii(code, sigPtr, argbuf) {
   var ERRNO_CODES={EPERM:63,ENOENT:44,ESRCH:71,EINTR:27,EIO:29,ENXIO:60,E2BIG:1,ENOEXEC:45,EBADF:8,ECHILD:12,EAGAIN:6,EWOULDBLOCK:6,ENOMEM:48,EACCES:2,EFAULT:21,ENOTBLK:105,EBUSY:10,EEXIST:20,EXDEV:75,ENODEV:43,ENOTDIR:54,EISDIR:31,EINVAL:28,ENFILE:41,EMFILE:33,ENOTTY:59,ETXTBSY:74,EFBIG:22,ENOSPC:51,ESPIPE:70,EROFS:69,EMLINK:34,EPIPE:64,EDOM:18,ERANGE:68,ENOMSG:49,EIDRM:24,ECHRNG:106,EL2NSYNC:156,EL3HLT:107,EL3RST:108,ELNRNG:109,EUNATCH:110,ENOCSI:111,EL2HLT:112,EDEADLK:16,ENOLCK:46,EBADE:113,EBADR:114,EXFULL:115,ENOANO:104,EBADRQC:103,EBADSLT:102,EDEADLOCK:16,EBFONT:101,ENOSTR:100,ENODATA:116,ETIME:117,ENOSR:118,ENONET:119,ENOPKG:120,EREMOTE:121,ENOLINK:47,EADV:122,ESRMNT:123,ECOMM:124,EPROTO:65,EMULTIHOP:36,EDOTDOT:125,EBADMSG:9,ENOTUNIQ:126,EBADFD:127,EREMCHG:128,ELIBACC:129,ELIBBAD:130,ELIBSCN:131,ELIBMAX:132,ELIBEXEC:133,ENOSYS:52,ENOTEMPTY:55,ENAMETOOLONG:37,ELOOP:32,EOPNOTSUPP:138,EPFNOSUPPORT:139,ECONNRESET:15,ENOBUFS:42,EAFNOSUPPORT:5,EPROTOTYPE:67,ENOTSOCK:57,ENOPROTOOPT:50,ESHUTDOWN:140,ECONNREFUSED:14,EADDRINUSE:3,ECONNABORTED:13,ENETUNREACH:40,ENETDOWN:38,ETIMEDOUT:73,EHOSTDOWN:142,EHOSTUNREACH:23,EINPROGRESS:26,EALREADY:7,EDESTADDRREQ:17,EMSGSIZE:35,EPROTONOSUPPORT:66,ESOCKTNOSUPPORT:137,EADDRNOTAVAIL:4,ENETRESET:39,EISCONN:30,ENOTCONN:53,ETOOMANYREFS:141,EUSERS:136,EDQUOT:19,ESTALE:72,ENOTSUP:138,ENOMEDIUM:148,EILSEQ:25,EOVERFLOW:61,ECANCELED:11,ENOTRECOVERABLE:56,EOWNERDEAD:62,ESTRPIPE:135};
   
   
-  var __main_thread_futex_wait_address=659744;function _emscripten_futex_wake(addr, count) {
+  var __main_thread_futex_wait_address=659968;function _emscripten_futex_wake(addr, count) {
       if (addr <= 0 || addr > HEAP8.length || addr&3 != 0 || count < 0) return -28;
       if (count == 0) return 0;
       // Waking (at least) INT_MAX waiters is defined to mean wake all callers.
@@ -2094,7 +2094,7 @@ function _emscripten_asm_const_iii(code, sigPtr, argbuf) {
         if (ENVIRONMENT_IS_PTHREAD) return undefined;
   
   
-        PThread.mainThreadBlock = 658960;
+        PThread.mainThreadBlock = 659184;
   
         for (var i = 0; i < 244/4; ++i) HEAPU32[PThread.mainThreadBlock/4+i] = 0;
   
@@ -2107,7 +2107,7 @@ function _emscripten_asm_const_iii(code, sigPtr, argbuf) {
         HEAP32[((headPtr)>>2)]=headPtr;
   
         // Allocate memory for thread-local storage.
-        var tlsMemory = 659216;
+        var tlsMemory = 659440;
         for (var i = 0; i < 128; ++i) HEAPU32[tlsMemory/4+i] = 0;
         Atomics.store(HEAPU32, (PThread.mainThreadBlock + 116 ) >> 2, tlsMemory); // Init thread-local-storage memory array.
         Atomics.store(HEAPU32, (PThread.mainThreadBlock + 52 ) >> 2, PThread.mainThreadBlock); // Main thread ID.
@@ -6115,7 +6115,7 @@ function _emscripten_asm_const_iii(code, sigPtr, argbuf) {
 
 
   function _emscripten_get_sbrk_ptr() {
-      return 658800;
+      return 659024;
     }
 
   
@@ -10699,6 +10699,13 @@ asm["arOSGInit"] = function() {
   return real__arOSGInit.apply(null, arguments);
 };
 
+var real__arOSGFinal = asm["arOSGFinal"];
+asm["arOSGFinal"] = function() {
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+  return real__arOSGFinal.apply(null, arguments);
+};
+
 var real__arOSGLoadModel2 = asm["arOSGLoadModel2"];
 asm["arOSGLoadModel2"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
@@ -10923,13 +10930,6 @@ asm["arOSGGetModelLocalPosef"] = function() {
   return real__arOSGGetModelLocalPosef.apply(null, arguments);
 };
 
-var real__arOSGGetModelIntersection = asm["arOSGGetModelIntersection"];
-asm["arOSGGetModelIntersection"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return real__arOSGGetModelIntersection.apply(null, arguments);
-};
-
 var real__arOSGGetModelIntersectionf = asm["arOSGGetModelIntersectionf"];
 asm["arOSGGetModelIntersectionf"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
@@ -10986,11 +10986,18 @@ asm["arOSGHandleKeyboard"] = function() {
   return real__arOSGHandleKeyboard.apply(null, arguments);
 };
 
-var real__arOSGFinal = asm["arOSGFinal"];
-asm["arOSGFinal"] = function() {
+var real__arOSGShowRayAndSetPose = asm["arOSGShowRayAndSetPose"];
+asm["arOSGShowRayAndSetPose"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return real__arOSGFinal.apply(null, arguments);
+  return real__arOSGShowRayAndSetPose.apply(null, arguments);
+};
+
+var real__arOSGHideRay = asm["arOSGHideRay"];
+asm["arOSGHideRay"] = function() {
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+  return real__arOSGHideRay.apply(null, arguments);
 };
 
 var real____em_js__initPthreadsJS = asm["__em_js__initPthreadsJS"];
@@ -11754,6 +11761,12 @@ var _arOSGInit = Module["_arOSGInit"] = function() {
   return Module["asm"]["arOSGInit"].apply(null, arguments)
 };
 
+var _arOSGFinal = Module["_arOSGFinal"] = function() {
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+  return Module["asm"]["arOSGFinal"].apply(null, arguments)
+};
+
 var _arOSGLoadModel2 = Module["_arOSGLoadModel2"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
@@ -11946,12 +11959,6 @@ var _arOSGGetModelLocalPosef = Module["_arOSGGetModelLocalPosef"] = function() {
   return Module["asm"]["arOSGGetModelLocalPosef"].apply(null, arguments)
 };
 
-var _arOSGGetModelIntersection = Module["_arOSGGetModelIntersection"] = function() {
-  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
-  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["arOSGGetModelIntersection"].apply(null, arguments)
-};
-
 var _arOSGGetModelIntersectionf = Module["_arOSGGetModelIntersectionf"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
@@ -12000,10 +12007,16 @@ var _arOSGHandleKeyboard = Module["_arOSGHandleKeyboard"] = function() {
   return Module["asm"]["arOSGHandleKeyboard"].apply(null, arguments)
 };
 
-var _arOSGFinal = Module["_arOSGFinal"] = function() {
+var _arOSGShowRayAndSetPose = Module["_arOSGShowRayAndSetPose"] = function() {
   assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
   assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
-  return Module["asm"]["arOSGFinal"].apply(null, arguments)
+  return Module["asm"]["arOSGShowRayAndSetPose"].apply(null, arguments)
+};
+
+var _arOSGHideRay = Module["_arOSGHideRay"] = function() {
+  assert(runtimeInitialized, 'you need to wait for the runtime to be ready (e.g. wait for main() to be called)');
+  assert(!runtimeExited, 'the runtime was exited (use NO_EXIT_RUNTIME to keep it alive after main() exits)');
+  return Module["asm"]["arOSGHideRay"].apply(null, arguments)
 };
 
 var ___em_js__initPthreadsJS = Module["___em_js__initPthreadsJS"] = function() {
