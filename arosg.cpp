@@ -686,7 +686,7 @@ extern "C" {
         }
         
         // Look for optional tokens. A blank line marks end of options.
-        int lightingFlag = 1, transparencyFlag = -1, texturesFlag = 0;
+        int lightingFlag = 1, transparencyFlag = -1, texturesFlag = 0, selectableFlag = 1;
         
         while (get_buff(buf, MAXPATHLEN, fp, 0) && (buf[0] != '\0')) {
             if (strncmp(buf, "LIGHTING", 8) == 0) {
@@ -701,6 +701,10 @@ extern "C" {
                 if (sscanf(&(buf[8]), " %d", &texturesFlag) != 1) {
                     ARLOGe("Error in model description file: TEXTURES token must be followed by an integer >= 0. Discarding.\n");
                 }
+            } else if (strncmp(buf, "SELECTABLE", 10) == 0) {
+                if (sscanf(&(buf[10]), " %d", &selectableFlag) != 1) {
+                    ARLOGe("Error in model description file: SELECTABLE token must be followed by an integer >= 0. Discarding.\n");
+                }
             }
             // Unknown tokens are ignored.
         }
@@ -711,6 +715,7 @@ extern "C" {
         if (index >= 0) {
             if (!lightingFlag) arOSGSetModelLighting(arOsg, index, 0);
             if (transparencyFlag != -1) arOSGSetModelTransparency(arOsg, index, transparencyFlag);
+            if (selectableFlag != 1) arOSGSetModelSelectable(arOsg, index, selectableFlag);
         }
         
         return (index);
@@ -1185,6 +1190,33 @@ extern "C" {
         for (int i = 0; i < 16; i++) model[i] = (float)(mtx[i]);
         return (0);
     }
+    
+    
+    void AR_OSG_EXTDEF arOSGSetModelSelectable(AROSG *arOsg, const int index, const int selectable)
+    {
+        if (!arOsg) return;
+        if (index < 0 || index >= AR_OSG_MODELS_MAX) return;
+        if (!arOsg->models[index]) {
+            ARLOGe("Error: model not found while attempting to set model selectability.\n");
+            return;
+        }
+        
+        static_cast<osg::MatrixTransform *>(arOsg->models[index]->getChild(0))->setNodeMask(selectable ? 0xffffffff : ~AR_OSG_NODE_MASK_SELECTABLE);
+    }
+    
+    int AR_OSG_EXTDEF arOSGGetModelSelectable(AROSG *arOsg, const int index)
+    {
+        if (!arOsg) return (-1);
+        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (!arOsg->models[index]) {
+            ARLOGe("Error: model not found while attempting to get model selectability.\n");
+            return (-1);
+        }
+        
+        unsigned int nm  = static_cast<osg::MatrixTransform *>(arOsg->models[index]->getChild(0))->getNodeMask();
+        return (nm & AR_OSG_NODE_MASK_SELECTABLE ? 1 : 0);
+    }
+
     
     int AR_OSG_EXTDEF arOSGGetModelIntersectionf(AROSG *arOsg, const int index, const float p1[3], const float p2[3])
     {

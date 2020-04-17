@@ -170,9 +170,24 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // Renderer globals.
     let gl = null;
     let arOsg = null; // Holds the instance pointer.
-    let modelIndex0 = -1;
-    let modelIndex1 = -1;
-    let modelIndex2 = -1;
+    let models = [
+        {
+            path: "models/binmixer.dat",
+            index: -1
+        },
+        {
+            path: "models/chiller.dat",
+            index: -1
+        },
+        {
+            path: "models/turbogenerator.dat",
+            index: -1
+        },
+        {
+            path: "models/hall_empty.dat",
+            index: -1
+        },
+    ];
     let gRayHit = [0, 0];
     let gRayHitModel = [-1, -1];
 
@@ -376,16 +391,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
             arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
-            let loadErr = 0;
-            modelIndex0 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/binmixer.dat']);
-            if (modelIndex0 < 0) console.error('Error loading models/binmixer.dat.');
-            else console.log('modelIndex0 is ' + modelIndex0 + '.');
-            modelIndex1 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/chiller.dat']);
-            if (modelIndex1 < 0) console.error('Error loading models/chiller.dat.');
-            else console.log('modelIndex1 is ' + modelIndex1 + '.');
-            modelIndex2 = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, 'models/turbogenerator.dat']);
-            if (modelIndex2 < 0) console.error('Error loading models/turbogenerator.dat.');
-            else console.log('modelIndex2 is ' + modelIndex2 + '.');
+
+            // Load models.
+            for (const model of models) {
+                model.index = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, model.path]);
+                if (model.index < 0) console.error('Error loading model \'' + model.path + '\'.');
+                else console.log('Loaded model \'' + model.path + '\' with index ' + model.index + '.');
+            }
         }
 
         // Get the XRDevice pose relative to the Frame of Reference we created

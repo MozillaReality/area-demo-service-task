@@ -680,6 +680,8 @@ AR_OSG_EXTERN     void arOSGHandleMouseMove(AROSG *arOsg, int x, int y);
 */
 AR_OSG_EXTERN     void arOSGHandleKeyboard(AROSG *arOsg, int key, int x, int y);
 
+AR_OSG_EXTERN     void arOSGSetModelSelectable(AROSG *arOsg, const int index, const int selectable);
+AR_OSG_EXTERN     int arOSGGetModelSelectable(AROSG *arOsg, const int index);
 #define AR_OSG_RAYS_MAX 2
 AR_OSG_EXTERN     void arOSGShowRayAndSetPose(AROSG *arOsg, int ray, float pose[16]);
 AR_OSG_EXTERN     void arOSGHideRay(AROSG *arOsg, int ray);    
