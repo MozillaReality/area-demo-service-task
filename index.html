@@ -40,7 +40,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	</p>
 	<p id="native">
 	</p>
-	<p id="modified">
+	<p>Last modified: <span id="modified">unknown</span>
 	</p>
 </header>
 <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" style="border: 0px none;background-color: black">
@@ -68,7 +68,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	    document.getElementById("native").innerHTML = 'Using native WebXR. <a href="?usePolyfill=1">Toggle</a>';
 	}
 	
-	document.getElementById("modified").innerHTML = document.lastModified;
+	let modDateTime = new Date(document.lastModified);
+	document.getElementById("modified").innerHTML = modDateTime.toLocaleTimeString(navigator.language) + ' ' + modDateTime.toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'});
 	
 	function _arrayToHeap(Module, typedArray) {
 	    let numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;
@@ -132,7 +133,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	// Creates a WebGL context and initializes it with some common default state.
 	function createWebGLContext(webglCanvas, glAttribs) {
-	    glAttribs = glAttribs || {alpha: false, depth:true, stencil: false, antialias: false};
+	    glAttribs = glAttribs || {alpha: false, depth:true, stencil: true, antialias: false};
 	    let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
 	    let context = null;
 	    for (let contextType of contextTypes) {
@@ -151,12 +152,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	// Create a WebGL context to render with, initialized to be compatible
 	// with the XRDisplay we're presenting to.
-	//         arOsgModSettings.canvas = createCanvas();
+	//arOsgModSettings.canvas = createCanvas();
 	arOsgModSettings.preinitializedWebGLContext = createWebGLContext(arOsgModSettings.canvas, {
 	    xrCompatible: true,
 	    // WebGL 2 in wasm uses SharedArrayBuffer, which is currently disabled in browsers due to Spectre.
 	    // Once SharedArrayBuffer is re-enabled or wasm changes its implementation, WebGL 2 can be re-enabled.
-	    //webgl2: true
+	    webgl2: true
 	});
 	
 	// Pre-populate settings for the WASM module.
@@ -172,6 +173,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let modelIndex0 = -1;
     let modelIndex1 = -1;
     let modelIndex2 = -1;
+    let gRayHit = [0, 0];
+    let gRayHitModel = [-1, -1];
 
     // Checks to see if WebXR is available and, if so, queries a list of
     // XRDevices that are connected to the system.
@@ -410,10 +413,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                     let p = _arrayToHeap(arOsgMod, targetRayPose.transform.matrix);
                     arOsgMod.ccall('arOSGShowRayAndSetPose', null, ['number', 'number', 'number'], [arOsg, i, p.byteOffset]);
                     _deleteHeap(arOsgMod, p);
+                    
+                    let rayHitModelPtr = new Int32Array([-1]);
+                    let p1 = _arrayToHeap(arOsgMod, rayHitModelPtr);
+                    let rayHit = arOsgMod.ccall('arOSGGetRayHit', 'number', ['number', 'number', 'number', 'number', 'number'], [arOsg, i, 0, 0, p1.byteOffset]);
+                    let rayHitModelResultPtr = new rayHitModelPtr.constructor(p1.buffer, p1.byteOffset, rayHitModelPtr.length);
+                    let rayHitModel = rayHitModelResultPtr[0];
+                    _deleteHeap(arOsgMod, p1);
+                    if (rayHit === -1) {
+                        console.log('arOSGGetRayHit error');
+                    } else {
+                        if (rayHit === 0) {
+                            if (gRayHit[i] !== 0) {
+                                // Turn off outline on previous model.
+                                //console.log('Disabling outline on model ' +  gRayHitModel[i]);
+                                arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
+                                gRayHit[i] = 0;
+                            }
+                        } else { // rayHit === 1
+                            if (gRayHit[i] === 0) {
+                                // Turn on outline on new model.
+                                //console.log('Enabling outline on model ' +  rayHitModel);
+                                arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                gRayHit[i] = 1;
+                                gRayHitModel[i] = rayHitModel;
+                            } else { // gRayHit[i] === 1
+                                // Check for case where hit moved from one model to another.
+                                if (gRayHitModel[i] !== rayHitModel) {
+                                    //console.log('Moving outline from model ' + gRayHitModel[i] + ' to model ' + rayHitModel);
+                                    arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
+                                    arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                    gRayHitModel[i] = rayHitModel;
+                                }
+                            }
+                        }
+                    }
                 }
             }
  
-            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT | gl.STENCIL_BUFFER_BIT);
 
             // Loop through each of the views reported by the frame and draw them
             // into the corresponding viewport.

@@ -84,6 +84,10 @@ struct _AROSG {
     int prevIndex;
     osg::ref_ptr<osg::MatrixTransform> models[AR_OSG_MODELS_MAX];
     osg::ref_ptr<osg::MatrixTransform> rays[AR_OSG_RAYS_MAX];
+    bool rayHit[AR_OSG_RAYS_MAX];
+    osg::Vec3f rayHitPos[AR_OSG_RAYS_MAX];
+    osg::Vec3f rayHitNorm[AR_OSG_RAYS_MAX];
+    int rayHitModel[AR_OSG_RAYS_MAX];
     int frontFaceWinding;
     double time;
 #ifndef OSG_GL_FIXED_FUNCTION_AVAILABLE
@@ -1116,13 +1120,15 @@ extern "C" {
             return (-1);
         }
 
+        const unsigned char rgbaDefault[4] = {255, 255, 0, 204};
+        const unsigned char *rgba0 = rgba ? rgba : rgbaDefault;
         osg::Group *configTransform = arOsg->models[index]->getChild(0)->asGroup()->getChild(0)->asGroup(); // arOsg->models[index] is transform, first child is localTransform, second child is configTransform.
         osgFX::Outline *modelAsOutline = dynamic_cast<osgFX::Outline*>(configTransform->getChild(0)); // Is an outline already in place?
         if (modelAsOutline) {
             if (width) {
                 // Just change the current params.
                 modelAsOutline->setWidth(width);
-                modelAsOutline->setColor(osg::Vec4f(rgba[0],rgba[1],rgba[2],rgba[3]));
+                modelAsOutline->setColor(osg::Vec4f(rgba0[0],rgba0[1],rgba0[2],rgba0[3]));
             } else {
                 // Width = 0, remove the current outline.
                 configTransform->addChild(modelAsOutline->getChild(0)); // Add the model to the outline's parent.
@@ -1133,7 +1139,7 @@ extern "C" {
             if (width) {
                 osg::ref_ptr<osgFX::Outline> outline = new osgFX::Outline;
                 outline->setWidth(width);
-                outline->setColor(osg::Vec4f(rgba[0],rgba[1],rgba[2],rgba[3]));
+                outline->setColor(osg::Vec4f(rgba0[0],rgba0[1],rgba0[2],rgba0[3]));
                 outline->addChild(configTransform->getChild(0));
                 configTransform->removeChild(0, 1);
                 configTransform->addChild(outline);
@@ -1369,18 +1375,33 @@ extern "C" {
         // Now work out what the ray is hitting, if anything.
         // Near end of line segment is just origin of ray pose.
         // Far end of line segment is origin plus  direction of ^a vector, multiplied by -maxRayLength.
-        bool hit = false;
-        osg::Vec3f hitNorm;
         osg::Vec3f p0 = osg::Vec3f(pose[12], pose[13], pose[14]);
         osg::Vec3f p1 = p0 - osg::Vec3f(pose[8], pose[9], pose[10])*maxRayLength;
         osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector = new osgUtil::LineSegmentIntersector(p0, p1);
         osgUtil::IntersectionVisitor iv(intersector.get());
         iv.setTraversalMask(AR_OSG_NODE_MASK_SELECTABLE); // Intersect only items with AR_OSG_NODE_MASK_SELECTABLE set.
         arOsg->sg->accept(iv);
+        arOsg->rayHitModel[ray] = -1;
         if (intersector->containsIntersections()) {
-            hit = true;
-            p1 = intersector->getIntersections().begin()->getWorldIntersectPoint();
-            hitNorm = intersector->getIntersections().begin()->getWorldIntersectNormal();
+            const osgUtil::LineSegmentIntersector::Intersection& intersection = *(intersector->getIntersections().begin());
+            arOsg->rayHit[ray] = true;
+            arOsg->rayHitPos[ray] = p1 = intersection.getWorldIntersectPoint();
+            arOsg->rayHitNorm[ray] = intersection.getWorldIntersectNormal();
+            int model = 0;
+            while (arOsg->models[model]) { // Optimisation: only scan the contiguous loaded model set from index 0.
+                //const osg::NodePath& nodePath = hit.nodePath;
+                //for (osg::NodePath::const_iterator nitr=nodePath.begin(); nitr!=nodePath.end(); ++nitr)
+                osg::NodePath::const_iterator itr = std::find(intersection.nodePath.begin(), intersection.nodePath.end(), arOsg->models[model].get());
+                if (itr != intersection.nodePath.end()) {
+                    arOsg->rayHitModel[ray] = model;
+                    break;
+                }
+                model++;
+                if (model >= AR_OSG_MODELS_MAX) break;
+            }
+            //ARLOGi("%sit after searching %d models.\n", (arOsg->rayHitModel[ray] == -1 ? "No h" : "H"), model + 1);
+        } else {
+            arOsg->rayHit[ray] = false;
         }
         osg::ref_ptr<osg::ShapeDrawable> raySD = static_cast<osg::ShapeDrawable *>(static_cast<osg::Geode *>(arOsg->rays[ray]->getChild(0))->getDrawable(0));
         
@@ -1394,6 +1415,26 @@ extern "C" {
         if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX) return;
         if (!arOsg->rays[ray]) return;
         arOsg->rays[ray]->setNodeMask(0x0);
+    }
+    
+    int AR_OSG_EXTDEF arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *rayHitModelPtr)
+    {
+        if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX) return -1;
+        
+        if (!arOsg->rays[ray]) return 0;
+        if (!arOsg->rayHit[ray]) return 0;
+        if (pos) {
+            pos[0] = arOsg->rayHitPos[ray].x();
+            pos[1] = arOsg->rayHitPos[ray].y();
+            pos[2] = arOsg->rayHitPos[ray].z();
+        }
+        if (norm) {
+            norm[0] = arOsg->rayHitNorm[ray].x();
+            norm[1] = arOsg->rayHitNorm[ray].y();
+            norm[2] = arOsg->rayHitNorm[ray].z();
+        }
+        if (rayHitModelPtr) *rayHitModelPtr = arOsg->rayHitModel[ray];
+        return 1;
     }
     
 } // extern "C"
