@@ -153,12 +153,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	// Create a WebGL context to render with, initialized to be compatible
 	// with the XRDisplay we're presenting to.
 	//arOsgModSettings.canvas = createCanvas();
-	arOsgModSettings.preinitializedWebGLContext = createWebGLContext(arOsgModSettings.canvas, {
-	    xrCompatible: true,
-	    // WebGL 2 in wasm uses SharedArrayBuffer, which is currently disabled in browsers due to Spectre.
-	    // Once SharedArrayBuffer is re-enabled or wasm changes its implementation, WebGL 2 can be re-enabled.
-	    webgl2: true
-	});
+	let glAttribs = {xrCompatible: true};
+	// WebGL 2 in wasm uses SharedArrayBuffer, which is incompatible with the polyfill.
+	if (!QueryArgs.getBool('usePolyfill', true)) glAttribs.webgl2 = true;
+	arOsgModSettings.preinitializedWebGLContext = createWebGLContext(arOsgModSettings.canvas, glAttribs);
 	
 	// Pre-populate settings for the WASM module.
 	const arOsgMod = Module(arOsgModSettings);
