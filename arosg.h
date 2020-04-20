@@ -75,8 +75,6 @@
 #  define AR_OSG_EXTDEF
 #endif
 
-#define AR_OSG_MODELS_MAX 1024
-
 typedef struct _AROSG AROSG; // (Forward definition of opaque structure).
 
 #ifdef __cplusplus
@@ -127,9 +125,11 @@ AR_OSG_EXTERN     ARG_API arOSGGetPreferredAPI();
     @discussion
         All other arOSG functions require a reference to settings and global data.
         Use this function to create and initialise such a structure.
+    @param       maxModels An integer value specifying the maximum number of models
+        that may be loaded at any one time.
     @result      Pointer to the new AROSG settings structure.
 */
-AR_OSG_EXTERN     AROSG *arOSGInit();
+AR_OSG_EXTERN     AROSG *arOSGInit(int maxModels);
 
 /*!
     @function
@@ -174,6 +174,12 @@ AR_OSG_EXTERN     void arOSGFinal(AROSG *arOsg);
             <li> TRANSPARENT: Provides a hint that this object includes transparent
                 portions, and should be drawn alpha-blended. Default is
                 that no transparency hint is provided.
+            <li> TEXTURES: Provides a hint that this object includes textured
+                portions, and should be drawn with texturing enabled. Default is
+                that no texturing hint is provided.
+            <li> SELECTABLE f: Enables or disables the ability for this model to
+                be selectable by hit-testing methods.
+                f = 0 to disable, f = 1 to enable. Default is enabled.
             </ul>
         </ul>
     @param      arOsg Pointer to the AROSG settings structure into which the model should be loaded. (See arOSGInit().)
@@ -183,7 +189,7 @@ AR_OSG_EXTERN     void arOSGFinal(AROSG *arOsg);
         to be applied to the model, the rotation (in angle/axis form, as degrees, angle of rotation x,y,z), and
         the scale factor to be applied to the model (in the x,y,z axes). See the sample files included
         in the ARToolKit distribution in the directory bin/OSG for examples.
-    @result     An index value with which the loaded model can be referred to, in the range [0, AR_OSG_MODELS_MAX - 1],
+    @result     An index value with which the loaded model can be referred to, in the range [0, maxModels - 1],
         or, in case of error, a value less than 0.
 */
 AR_OSG_EXTERN     int arOSGLoadModel(AROSG *arOsg, const char *modelDescriptionFilePath);
@@ -198,7 +204,7 @@ AR_OSG_EXTERN     int arOSGLoadModel(AROSG *arOsg, const char *modelDescriptionF
     @param      rotation The rotation (in angle/axis form, as degrees, angle of rotation x,y,z) to be applied to the model, or NULL to apply no rotation.
     @param      scale The scale factor to be applied to the model (in the x,y,z axes) or NULL to retain the scale at 1.0.
     @param      textures Provides a hint that the model uses textures. This is required when using programmable OpenGL pipelines (e.g. OpenGL ES 2.0+, or OpenGL 3.1+) with textured models.
-    @result     An index value with which the loaded model can be referred to, in the range [0, AR_OSG_MODELS_MAX - 1],
+    @result     An index value with which the loaded model can be referred to, in the range [0, maxModels - 1],
         or, in case of error, a value less than 0.
     @availability Available in ARToolKit v4.5.1 and later.
  */
@@ -680,12 +686,75 @@ AR_OSG_EXTERN     void arOSGHandleMouseMove(AROSG *arOsg, int x, int y);
 */
 AR_OSG_EXTERN     void arOSGHandleKeyboard(AROSG *arOsg, int key, int x, int y);
 
+/*!
+    @function
+    @abstract   Enable or disable ray selection on a model.
+    @discussion When using the provided ray selection model, this function can
+        be used to disable or re-enable selectability of an object. Objects which
+        are marked as not selectable will not be considered when determining the
+        ray path.
+    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
+    @param      index The index of the model of which to set the selectability.
+    @param      selectable 0 to make the object un-selectable, 1 to make it selectable.
+*/
 AR_OSG_EXTERN     void arOSGSetModelSelectable(AROSG *arOsg, const int index, const int selectable);
+
+/*!
+    @function
+    @abstract   Query whether ray selection on a model is enabled or disabled.
+    @discussion When using the provided ray selection model, this function can
+        be used to determine the selectability of an object.
+    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
+    @param      index The index of the model of which to query the selectability.
+    @result     0 if the object is un-selectable, 1 if it is selectable.
+*/
 AR_OSG_EXTERN     int arOSGGetModelSelectable(AROSG *arOsg, const int index);
+
 #define AR_OSG_RAYS_MAX 2
+/*!
+    @function
+    @abstract   Enables a ray for ray-based selection and test for object hits. 
+    @discussion This function allows for a laser-pointer-like "ray" to be shown
+        in the scene and used by the user to select objects.
+        After this call, the position (in world coordinates) of the first (if any)
+        object struck by the ray will be queryable via calling arOSGGetRayHit.
+    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
+    @param      ray The index of the ray (in the range [0, AR_OSG_RAYS_MAX - 1]
+        to enable and test for object hits.
+    @param      pose Sets the position and orientation of the proximal end of the
+        ray, as a 4x4 column-major transform. If the identity matrix is passed,
+        the ray will begin at the origin and point in the direction of the -z axis.
+*/
 AR_OSG_EXTERN     void arOSGShowRayAndSetPose(AROSG *arOsg, int ray, float pose[16]);
-AR_OSG_EXTERN     void arOSGHideRay(AROSG *arOsg, int ray);    
-AR_OSG_EXTERN     int arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *rayHitModelPtr);
+
+/*!
+    @function
+    @abstract   Disable a ray for ray-based selection and test for object hits.
+    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
+    @param      ray The index of the ray (in the range [0, AR_OSG_RAYS_MAX - 1]
+        to disable for object hits.
+*/
+AR_OSG_EXTERN     void arOSGHideRay(AROSG *arOsg, int ray);
+  
+/*!
+    @function
+    @abstract   Enables a ray for ray-based selection and test for object hits. 
+    @discussion This function allows for a laser-pointer-like "ray" to be shown
+        in the scene and used by the user to select objects.
+        After this call, the position (in world coordinates) of the first (if any)
+        object struck by the ray will be queryable via calling arOSGGetRayHit.
+    @param      arOsg Pointer to the AROSG settings structure. (See arOSGInit().)
+    @param      ray The index of the ray (in the range [0, AR_OSG_RAYS_MAX - 1]
+        for which to return object hits.
+    @param      pos The position in world coordinates of the point where the ray
+        hit the object, or NULL if this value is not required.
+    @param      norm The normal vector in world coordinates of the surface at the
+        point where the ray hit the object, or NULL if this value is not required.
+    @param      modelIndexPtr A pointer to an integer which will be set to the
+        index of the loaded model which was hit, nor NULL if this value is not required.
+    @result     0 if the ray is did not hit an object, 1 if it hit an object.
+*/
+AR_OSG_EXTERN     int arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *modelIndexPtr);
 
 #ifdef __cplusplus
 }

@@ -133,7 +133,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	// Creates a WebGL context and initializes it with some common default state.
 	function createWebGLContext(webglCanvas, glAttribs) {
-	    glAttribs = glAttribs || {alpha: false, depth:true, stencil: true, antialias: false};
+	    glAttribs = glAttribs || {alpha: true, depth:true, stencil: true, antialias: true};
 	    let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
 	    let context = null;
 	    for (let contextType of contextTypes) {
@@ -384,7 +384,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // One-time init.
         if (arOsg === null) {
-            arOsg = arOsgMod.ccall('arOSGInit', 'number');
+            arOsg = arOsgMod.ccall('arOSGInit', 'number', ['number'], [models.length]);
             console.log('arOsg: 0x' + arOsg.toString(16));
 
             console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');

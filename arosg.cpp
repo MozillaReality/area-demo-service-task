@@ -82,12 +82,13 @@ struct _AROSG {
     osg::observer_ptr<osgViewer::GraphicsWindow> window;
     osg::ref_ptr<osg::Group> sg;
     int prevIndex;
-    osg::ref_ptr<osg::MatrixTransform> models[AR_OSG_MODELS_MAX];
+    int maxModels;
+    osg::ref_ptr<osg::MatrixTransform> *models;
     osg::ref_ptr<osg::MatrixTransform> rays[AR_OSG_RAYS_MAX];
     bool rayHit[AR_OSG_RAYS_MAX];
     osg::Vec3f rayHitPos[AR_OSG_RAYS_MAX];
     osg::Vec3f rayHitNorm[AR_OSG_RAYS_MAX];
-    int rayHitModel[AR_OSG_RAYS_MAX];
+    int rayHitModelIndex[AR_OSG_RAYS_MAX];
     int frontFaceWinding;
     double time;
 #ifndef OSG_GL_FIXED_FUNCTION_AVAILABLE
@@ -393,12 +394,19 @@ extern "C" {
 #endif
     }
     
-    AROSG AR_OSG_EXTDEF *arOSGInit()
+    AROSG AR_OSG_EXTDEF *arOSGInit(int maxModels)
     {
         AROSG *arOsg;
         
         arOsg = (AROSG *)calloc(1, sizeof(AROSG));
         if (!arOsg) return (nullptr);
+        
+        arOsg->models = (osg::ref_ptr<osg::MatrixTransform> *)calloc(maxModels, sizeof(osg::ref_ptr<osg::MatrixTransform>));
+        if (!arOsg->models) {
+            free(arOsg);
+            return (nullptr);
+        }
+        arOsg->maxModels = maxModels;
         
 #ifdef __EMSCRIPTEN__
         EmscriptenWebGLContextAttributes attrs;
@@ -428,7 +436,7 @@ extern "C" {
         osg::setNotifyLevel(osg::NOTICE);
             
         arOsg->sg = new osg::Group;
-        arOsg->prevIndex = AR_OSG_MODELS_MAX - 1;
+        arOsg->prevIndex = maxModels - 1;
         arOsg->time = USE_REFERENCE_TIME;
 
         // create our default programs
@@ -459,6 +467,7 @@ extern "C" {
         osg::setNotifyHandler(nullptr);
         delete arOsg->logger;
         arOsg->logger = nullptr;
+        free (arOsg->models);
         free (arOsg);
     }
 
@@ -488,12 +497,13 @@ extern "C" {
         int index = arOsg->prevIndex;
         do {
             index++;
-            if (index >= AR_OSG_MODELS_MAX) index = 0;
+            if (index >= arOsg->maxModels) index = 0;
         } while (index != arOsg->prevIndex && arOsg->models[index] != nullptr);
         if (index == arOsg->prevIndex) {
-            ARLOGe("Error: Unable to load model, maximum number of models (%d) already loaded.\n", AR_OSG_MODELS_MAX);
+            ARLOGe("Error: Unable to load model, maximum number of models (%d) already loaded.\n", arOsg->maxModels);
             return (-1);
         };
+        arOsg->prevIndex = index; // Save for next time.
         
         //osg::BoundingSphere bs = model->getBound();
         //ARLOGd("Model: radius %f, center (%f,%f,%f).\n", bs.radius(), bs.center().x(), bs.center().y(), bs.center().z());
@@ -539,7 +549,6 @@ extern "C" {
         // Add the model.
         configTransform->addChild(model.get());
         
-        arOsg->prevIndex = index; // Save for next time.
         return (index);
     }
     
@@ -729,7 +738,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to unload a model.\n");
             return (-1);
@@ -748,7 +757,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model visibility.\n");
             return (-1);
@@ -767,7 +776,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model visibility.\n");
             return (-1);
@@ -785,7 +794,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model lighting.\n");
             return (-1);
@@ -803,7 +812,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model lighting.\n");
             return (-1);
@@ -821,7 +830,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model transparency.\n");
             return (-1);
@@ -843,7 +852,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model animation pause.\n");
             return (-1);
@@ -864,7 +873,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model animation time.\n");
             return (-1);
@@ -885,7 +894,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to reset model animation.\n");
             return (-1);
@@ -905,7 +914,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model animation loop mode override.\n");
             return (-1);
@@ -1026,7 +1035,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGSetModelPose(AROSG *arOsg, const int index, const double modelview[16])
     {
         if (!arOsg) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model pose.\n");
             return (-1);
@@ -1039,7 +1048,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGSetModelPosef(AROSG *arOsg, const int index, const float modelview[16])
     {
         if (!arOsg) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model pose.\n");
             return (-1);
@@ -1052,7 +1061,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGGetModelPose(AROSG *arOsg, const int index, double *modelview)
     {
         if (!arOsg || !modelview) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model pose.\n");
             return (-1);
@@ -1070,7 +1079,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGGetModelPosef(AROSG *arOsg, const int index, float *modelview)
     {
         if (!arOsg || !modelview) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model pose.\n");
             return (-1);
@@ -1088,7 +1097,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGSetModelLocalPose(AROSG *arOsg, const int index, const double model[16])
     {
         if (!arOsg) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model pose.\n");
             return (-1);
@@ -1101,7 +1110,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGSetModelLocalPosef(AROSG *arOsg, const int index, const float model[16])
     {
         if (!arOsg) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model pose.\n");
             return (-1);
@@ -1119,7 +1128,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model outline.\n");
             return (-1);
@@ -1158,7 +1167,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGGetModelLocalPose(AROSG *arOsg, const int index, double *model)
     {
         if (!arOsg || !model) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model pose.\n");
             return (-1);
@@ -1176,7 +1185,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGGetModelLocalPosef(AROSG *arOsg, const int index, float *model)
     {
         if (!arOsg || !model) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model pose.\n");
             return (-1);
@@ -1195,7 +1204,7 @@ extern "C" {
     void AR_OSG_EXTDEF arOSGSetModelSelectable(AROSG *arOsg, const int index, const int selectable)
     {
         if (!arOsg) return;
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return;
+        if (index < 0 || index >= arOsg->maxModels) return;
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to set model selectability.\n");
             return;
@@ -1207,7 +1216,7 @@ extern "C" {
     int AR_OSG_EXTDEF arOSGGetModelSelectable(AROSG *arOsg, const int index)
     {
         if (!arOsg) return (-1);
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             ARLOGe("Error: model not found while attempting to get model selectability.\n");
             return (-1);
@@ -1226,7 +1235,7 @@ extern "C" {
             ARLOGw("Error in emscripten_webgl_make_context_current().\n");
         };
 #endif
-        if (index < 0 || index >= AR_OSG_MODELS_MAX) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
         if (!arOsg->models[index]) {
             fprintf(stderr, "[error] Error: model not found while attempting to get model intersection.\n");
             return (-1);
@@ -1237,37 +1246,6 @@ extern "C" {
         osgUtil::IntersectionVisitor iv(intersector.get());
         arOsg->models[index]->accept(iv);
         if (intersector->containsIntersections()) {
-            /*
-             @param      nodeType If supplied, on return the location pointed to will be filled with a pointer to a C string
-             containing the name of the node type, e.g. "Node" or "Geode", or filled with nullptr if this could not be determined.
-             If this information is not required, pass nullptr for this parameter.
-             @param      nodeName If supplied, on return the location pointed to will be filled with a pointer to a C string
-             containing the user-defined name of the actual node, provided one was defined, e.g. "MyCoolNode",
-             or filled with nullptr if no name had been assigned.
-             If this information is not required, pass nullptr for this parameter.
-             @param      intersectionCoords If supplied, should point to an array of 3 floats. On return the location pointed
-             to will be filled with a the coordinates of the interection in world coordinate space.
-             or filled with nullptr if no name had been assigned.
-             If this information is not required, pass nullptr for this parameter.             
-             */
-            /*char **nodeType, char **nodeName, float *intersectionCoords
-            intersections = intersector->getIntersections();
-            for (osgUtil::LineSegmentIntersector::Intersections::iterator hitr = intersections.begin(); hitr != intersections.end(); ++hitr) {
-                if (nodeType) {
-                    if (hitr->drawable.valid()) {
-                        *nodeType = strdup(hitr->drawable->className());
-                    } else *nodeType = nullptr;
-                }
-                if (nodeName) {
-                    if (!hitr->nodePath.empty() && !(hitr->nodePath.back()->getName().empty())) {
-                        *nodeType = strdup(hitr->nodePath.back()->getName().c_str());
-                    } else *nodeName = nullptr;
-                }
-                if (intersectionCoords) {
-                    float *ic = hitr->getWorldIntersectPoint().ptr();
-                    intersectionCoords[0] = ic[0]; intersectionCoords[1] = ic[1]; intersectionCoords[2] = ic[2];
-                }
-            }*/
             return (1);
         } else return (0);
     }
@@ -1390,6 +1368,11 @@ extern "C" {
         
         static float demo[AR_OSG_RAYS_MAX] = {0.0f};
         if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX || !pose) return;
+#ifdef __EMSCRIPTEN__
+        if (emscripten_webgl_make_context_current(arOsg->webGLCtx) != EMSCRIPTEN_RESULT_SUCCESS) {
+            ARLOGw("Error in emscripten_webgl_make_context_current().\n");
+        };
+#endif
         
         if (!arOsg->rays[ray]) {
             arOsg->rays[ray] = new osg::MatrixTransform;
@@ -1406,36 +1389,31 @@ extern "C" {
         
         // Now work out what the ray is hitting, if anything.
         // Near end of line segment is just origin of ray pose.
-        // Far end of line segment is origin plus  direction of ^a vector, multiplied by -maxRayLength.
+        // Far end of line segment is near end, plus transformed -z unit vector
+        // multiplied by -maxRayLength.
         osg::Vec3f p0 = osg::Vec3f(pose[12], pose[13], pose[14]);
         osg::Vec3f p1 = p0 - osg::Vec3f(pose[8], pose[9], pose[10])*maxRayLength;
         osg::ref_ptr<osgUtil::LineSegmentIntersector> intersector = new osgUtil::LineSegmentIntersector(p0, p1);
         osgUtil::IntersectionVisitor iv(intersector.get());
         iv.setTraversalMask(AR_OSG_NODE_MASK_SELECTABLE); // Intersect only items with AR_OSG_NODE_MASK_SELECTABLE set.
         arOsg->sg->accept(iv);
-        arOsg->rayHitModel[ray] = -1;
+        arOsg->rayHitModelIndex[ray] = -1;
         if (intersector->containsIntersections()) {
             const osgUtil::LineSegmentIntersector::Intersection& intersection = *(intersector->getIntersections().begin());
             arOsg->rayHit[ray] = true;
             arOsg->rayHitPos[ray] = p1 = intersection.getWorldIntersectPoint();
             arOsg->rayHitNorm[ray] = intersection.getWorldIntersectNormal();
-            int model = 0;
-            while (arOsg->models[model]) { // Optimisation: only scan the contiguous loaded model set from index 0.
-                //const osg::NodePath& nodePath = hit.nodePath;
-                //for (osg::NodePath::const_iterator nitr=nodePath.begin(); nitr!=nodePath.end(); ++nitr)
-                osg::NodePath::const_iterator itr = std::find(intersection.nodePath.begin(), intersection.nodePath.end(), arOsg->models[model].get());
+            for (int index = 0; index < arOsg->maxModels; index++) {
+                osg::NodePath::const_iterator itr = std::find(intersection.nodePath.begin(), intersection.nodePath.end(), arOsg->models[index].get());
                 if (itr != intersection.nodePath.end()) {
-                    arOsg->rayHitModel[ray] = model;
+                    arOsg->rayHitModelIndex[ray] = index;
                     break;
                 }
-                model++;
-                if (model >= AR_OSG_MODELS_MAX) break;
             }
-            //ARLOGi("%sit after searching %d models.\n", (arOsg->rayHitModel[ray] == -1 ? "No h" : "H"), model + 1);
         } else {
             arOsg->rayHit[ray] = false;
         }
-        osg::ref_ptr<osg::ShapeDrawable> raySD = static_cast<osg::ShapeDrawable *>(static_cast<osg::Geode *>(arOsg->rays[ray]->getChild(0))->getDrawable(0));
+        osg::ref_ptr<osg::ShapeDrawable> raySD = static_cast<osg::ShapeDrawable *>(static_cast<osg::Geode *>(arOsg->rays[ray]->getChild(0))->getDrawable(0)); // We can just use static casts here because we know the node types.
         
         float length = (p1 - p0).length();
         raySD->setShape(new osg::Box(osg::Vec3(0.0f, 0.0f, -length/2.0f), thickness, thickness, length)); // Ray points in -z direction.
@@ -1449,7 +1427,7 @@ extern "C" {
         arOsg->rays[ray]->setNodeMask(0x0);
     }
     
-    int AR_OSG_EXTDEF arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *rayHitModelPtr)
+    int AR_OSG_EXTDEF arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *modelIndexPtr)
     {
         if (!arOsg || ray < 0 || ray >= AR_OSG_RAYS_MAX) return -1;
         
@@ -1465,7 +1443,7 @@ extern "C" {
             norm[1] = arOsg->rayHitNorm[ray].y();
             norm[2] = arOsg->rayHitNorm[ray].z();
         }
-        if (rayHitModelPtr) *rayHitModelPtr = arOsg->rayHitModel[ray];
+        if (modelIndexPtr) *modelIndexPtr = arOsg->rayHitModelIndex[ray];
         return 1;
     }
     
