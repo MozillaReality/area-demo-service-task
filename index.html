@@ -91,7 +91,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         return new Promise(poll);
     }
 
+//     function createCanvas() {
+//         let webglCanvas = document.createElement('canvas');
+//         //webglCanvas.setAttribute('id', 'canvas');
+//         // As a default initial behavior, pop up an alert when webgl context is lost. To make your
+//         // application robust, you may want to override this behavior before shipping!
+//         // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
+//         webglCanvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
+//         return webglCanvas;
+//     }
+
     let arOsgReady = false;
+
+	// Pre-populate settings for the WASM module.
 	let arOsgModSettings = {
 	    preRun: [],
 	    postRun: [],
@@ -121,19 +133,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	    }
 	};
 	
-//         function createCanvas() {
-//             let canvas = document.createElement('canvas');
-//             //canvas.setAttribute('id', 'canvas');
-//             // As a default initial behavior, pop up an alert when webgl context is lost. To make your
-//             // application robust, you may want to override this behavior before shipping!
-//             // See http://www.khronos.org/registry/webgl/specs/latest/1.0/#5.15.2
-//             webglCanvas.addEventListener("webglcontextlost", function(e) { alert('WebGL context lost. You will need to reload the page.'); e.preventDefault(); }, false);
-//             return canvas;
-//         }
-	
 	// Creates a WebGL context and initializes it with some common default state.
 	function createWebGLContext(webglCanvas, glAttribs) {
-	    glAttribs = glAttribs || {alpha: true, depth:true, stencil: true, antialias: true};
+	    glAttribs = glAttribs || {depth:true};
 	    let contextTypes = glAttribs.webgl2 ? ['webgl2'] : ['webgl', 'experimental-webgl'];
 	    let context = null;
 	    for (let contextType of contextTypes) {
@@ -152,13 +154,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	// Create a WebGL context to render with, initialized to be compatible
 	// with the XRDisplay we're presenting to.
-	//arOsgModSettings.canvas = createCanvas();
-	let glAttribs = {xrCompatible: true};
+	let glAttribs = {xrCompatible: true, alpha: true, depth:true, stencil: true, antialias: true};
 	// WebGL 2 in wasm uses SharedArrayBuffer, which is incompatible with the polyfill.
 	if (!QueryArgs.getBool('usePolyfill', true)) glAttribs.webgl2 = true;
 	arOsgModSettings.preinitializedWebGLContext = createWebGLContext(arOsgModSettings.canvas, glAttribs);
+	let contextAttributes = arOsgModSettings.preinitializedWebGLContext.getContextAttributes();
+    if (!contextAttributes.stencil) {
+        console.error('Requested stencil buffer but none provided.');
+    }
 	
-	// Pre-populate settings for the WASM module.
+	// Instantiate the WASM module.
 	const arOsgMod = Module(arOsgModSettings);
 	
     // XR globals.
@@ -253,36 +258,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         return glInfo;
     }
 	
-//     function detectWebGL() {
-//         var canvas = arOsgMod.canvas || document.createElement("canvas");
-//         var names = ["webgl2", "webgl", "experimental-webgl"];
-//         function testError(e) { arOsgMod.webGLErrorReason = e.statusMessage; };
-//         canvas.addEventListener("webglcontextcreationerror", testError, false);
-//         try {
-//             for(var failIfMajorPerformanceCaveat = 1; failIfMajorPerformanceCaveat >= 0; --failIfMajorPerformanceCaveat) {
-//                 for(var i in names) {
-//                     try {
-//                         var context = canvas.getContext(names[i], {antialias:false,alpha:false,depth:true,stencil:true,failIfMajorPerformanceCaveat:!!failIfMajorPerformanceCaveat});
-//                         arOsgMod.preinitializedWebGLContext = context;
-//                         arOsgMod.softwareWebGL = !failIfMajorPerformanceCaveat;
-//                         if (context && typeof context.getParameter == "function") {
-//                             if (typeof WebGL2RenderingContext !== 'undefined' && context instanceof WebGL2RenderingContext && names[i] == 'webgl2') {
-//                                 return 2;
-//                             } else {
-//                                 // We were able to precreate only a WebGL 1 context, remove support for WebGL 2 from the rest of the page execution.
-//                                 WebGL2RenderingContext = undefined;
-//                                 return 1;
-//                             }
-//                         }
-//                     } catch(e) { arOsgMod.webGLErrorReason = e.toString(); }
-//                 }
-//             }
-//         } finally {
-//             canvas.removeEventListener("webglcontextcreationerror", testError, false);
-//         }
-//         return 0;
-//     }
-	
     // Called when we've successfully acquired a XRSession. In response we
     // will set up the necessary session state and kick off the frame loop.
     function onSessionStarted(session) {
@@ -296,13 +271,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         gl = arOsgMod.preinitializedWebGLContext;
 
-//        Module.WEBGL_VERSION = detectWebGL();
         console.log(getGpuInfo());
-// 	      requiredWebGLVersion = 2;
-// 	      if (!Module.WEBGL_VERSION || Module.WEBGL_VERSION < requiredWebGLVersion) {
-// 		      showErrorDialog('Your browser does not support WebGL ' + requiredWebGLVersion + '<br>Error reason: ' + (Module.webGLErrorReason || 'Unknown') + '. Try updating your browser and/or graphics card drivers.<br>Current renderer: ' + getGpuInfo());
-// 		      return;
-// 	      }
 
         // Here init renderer and GPU resources.
 
