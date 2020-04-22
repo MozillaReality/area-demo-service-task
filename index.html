@@ -169,6 +169,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // XR globals.
     let xrButton = null;
     let xrRefSpace = null;
+    let haveAR = false;
 
     // Renderer globals.
     let gl = null;
@@ -176,19 +177,23 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     let models = [
         {
             path: "models/binmixer.dat",
-            index: -1
+            index: -1,
+            dontShowInAR: false
         },
         {
             path: "models/chiller.dat",
-            index: -1
+            index: -1,
+            dontShowInAR: false
         },
         {
             path: "models/turbogenerator.dat",
-            index: -1
+            index: -1,
+            dontShowInAR: false
         },
         {
             path: "models/hall_empty.dat",
-            index: -1
+            index: -1,
+            dontShowInAR: true
         },
     ];
     let gRayHit = [0, 0];
@@ -215,6 +220,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             navigator.xr.isSessionSupported('immersive-ar').then((isSupported) => {
                 if (isSupported) {
                     console.log('immersive-ar is supported.');
+                    haveAR = true;
                     return true;
                 }
                 // Fall back to VR if AR not available.
@@ -361,6 +367,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
             // Load models.
             for (const model of models) {
+                if (haveAR && model.dontShowInAR) continue;
                 model.index = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, model.path]);
                 if (model.index < 0) console.error('Error loading model \'' + model.path + '\'.');
                 else console.log('Loaded model \'' + model.path + '\' with index ' + model.index + '.');
