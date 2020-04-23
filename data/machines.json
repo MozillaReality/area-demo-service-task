@@ -1,0 +1,23 @@
+{
+    "machines": [
+        {
+            "machineid": 1,
+            "type": "Bin Mixer",
+            "serial": 4301224,
+            "modelpath": "models/binmixer.dat"
+        },
+        {
+            "machineid": 2,
+            "type": "Chiller",
+            "serial": 500402,
+            "modelpath": "models/chiller.dat"
+        },
+        {
+            "machineid": 3,
+            "type": "Turbogenerator",
+            "serial": 110101,
+            "modelpath": "models/turbogenerator.dat"
+        }
+    ]
+}
+

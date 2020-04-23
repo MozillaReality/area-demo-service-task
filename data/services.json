@@ -1,0 +1,35 @@
+{
+    "services": [
+        {
+            "serviceid": 1,
+            "name": "Oil Filter Replacement",
+            "desc": "Procedure for replacing an oil filter during routine maintenance.",
+            "steps": [
+                "Remove filter cover",
+                "Replace filter",
+                "Replace filter cover"
+            ]
+        },
+        {
+            "serviceid": 2,
+            "name": "Check Fluid Level",
+            "desc": "Ensure fluid level is appropriate for operation.",
+            "steps": [
+                "Visually inspect as-found fluid level and record",
+                "If fluid level is low, fill as appropriate",
+                "Record new as-left fluid level"
+            ]
+        },
+        {
+            "serviceid": 3,
+            "name": "Visual Inspection",
+            "desc": "Complete visual inspection to identify off-nominal conditions.",
+            "steps": [
+                "Visually inspect physical condition of equipment.",
+                "Note any anomalies (cracks, loose parts, leaking fluids, etc.)",
+                "Open a repair ticket for future correction"
+            ]
+        }
+    ]
+}
+

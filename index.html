@@ -34,8 +34,16 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 <header>
 	Service Task Demo 
 	<p id="prompt">
-		Click to begin.
+		Choose a worker and assigned task, then click the button to enter XR.
 	</p>
+	<p>
+	<select id="workers">
+        <option value="">Choose a worker...</option>
+    </select>
+	<select id="assigned_services">
+        <option value="">Choose an assigned service...</option>
+    </select>
+	</>
 	<p id="button">
 	</p>
 	<p id="native">
@@ -70,6 +78,84 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	let modDateTime = new Date(document.lastModified);
 	document.getElementById("modified").innerHTML = modDateTime.toLocaleTimeString(navigator.language) + ' ' + modDateTime.toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'});
+	
+	//
+	// Set up worker/assigned service selection.
+	//
+	
+	function fetchJSON(uri) {
+	    return fetch((uri)).then(response => {
+            return response.json();
+        }).then(data => {
+            return data;
+        }).catch(err => {
+            console.error('Error fetching \'' + uri + '\', ', err);
+        });
+	}
+	
+	function htmlEntities(str) {
+        return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+    
+	let workers = {};
+	let machines = {};
+	let services = {};
+	let assigned_services = {};
+	
+	// These hold the current state.
+	let worker = 0;
+	let assigned_service = 0;
+	let machine = 0;
+	let service = 0;
+	let service_step = 0;
+	
+	fetchJSON('./data/workers.json').then((t) => {
+	    workers = t.workers;
+	    let ht = '';
+	    for (let i of workers) {
+            ht += '<option value="' + i.workerid + '">' + htmlEntities(i.name) + '</option>\n';
+        }
+	    document.getElementById('workers').innerHTML += ht;
+	    document.getElementById('workers').addEventListener('change', onWorkerChanged);
+	});
+	fetchJSON('./data/machines.json').then((t) => {
+	    machines = t.machines;
+	});
+	fetchJSON('./data/services.json').then((t) => {
+	    services = t.services;
+	});
+	fetchJSON('./data/assigned_services.json').then((t) => {
+	    assigned_services = t.assigned_services;
+	    document.getElementById('assigned_services').addEventListener('change', onAssignedServiceChanged);
+	});
+	
+	function onWorkerChanged() {
+	    let o = document.getElementById('workers');
+	    if (o.selectedIndex == 0) return;
+        worker = o.options[o.selectedIndex].value;
+        let ht = '';
+        for (let i of assigned_services) {
+            if (i.workerid == worker) {
+                ht += '<option value="' + i.taskid + '">' + htmlEntities(machines[i.machineid].type + ': ' + services[i.serviceid].name) + '</option>\n';
+            }
+        }
+        document.getElementById('assigned_services').innerHTML += ht;
+	}
+	
+	function onAssignedServiceChanged() {
+	    let o = document.getElementById('assigned_services');
+	    if (o.selectedIndex == 0) return;
+	    assigned_service = assigned_services[o.options[o.selectedIndex].value];
+	    console.log(assigned_service);
+	    machine = machines[assigned_service.machineid];
+	    service = services[assigned_service.serviceid];
+	    service_step = 0;
+	    console.log('Set machine=',machine, ', service=', service);
+	}
+	
+	//
+	// Set up OSG.
+	//
 	
 	function _arrayToHeap(Module, typedArray) {
 	    let numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;

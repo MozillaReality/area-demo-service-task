@@ -1,0 +1,23 @@
+{
+    "assigned_services": [
+        {
+            "taskid": 1,
+            "machineid": 1,
+            "serviceid": 1,
+            "workerid": 1
+        },
+        {
+            "taskid": 2,
+            "machineid": 2,
+            "serviceid": 2,
+            "workerid": 2
+        },
+        {
+            "taskid": 3,
+            "machineid": 3,
+            "serviceid": 3,
+            "workerid": 3
+        }
+    ]
+}
+

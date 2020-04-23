@@ -1,0 +1,20 @@
+{
+    "workers": [
+        {
+            "workerid": 1,
+            "name": "Jimmy Jamison",
+            "role": "Field Tech Specialist"
+        },
+        {
+            "workerid": 2,
+            "name": "Billy Bilton",
+            "role": "Maintenance Supervisor"
+        },
+        {
+            "workerid": 3,
+            "name": "Tom Thompson",
+            "role": "Repair Technician II"
+        }
+    ]
+}
+
