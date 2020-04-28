@@ -65,6 +65,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	import Module from './arosg.js'
 	import {WebXRButton} from './js/util/webxr-button.js';
 	import {QueryArgs} from './js/util/query-args.js';
+	import {mat4, quat, glMatrix} from './js/third-party/gl-matrix/src/gl-matrix.js';
 	
 	// If requested, use the polyfill to provide support for mobile devices
 	// and devices which only support WebVR.
@@ -128,6 +129,10 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	    assigned_services = t.assigned_services;
 	    document.getElementById('assigned_services').addEventListener('change', onAssignedServiceChanged);
 	});
+	
+	let machine_hall = {
+	    modelpath: "models/hall_empty.dat"
+	};
 	
 	function onWorkerChanged() {
 	    let o = document.getElementById('workers');
@@ -260,28 +265,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // Renderer globals.
     let gl = null;
     let arOsg = null; // Holds the instance pointer.
-    let models = [
-        {
-            path: "models/binmixer.dat",
-            index: -1,
-            dontShowInAR: false
-        },
-        {
-            path: "models/chiller.dat",
-            index: -1,
-            dontShowInAR: false
-        },
-        {
-            path: "models/turbogenerator.dat",
-            index: -1,
-            dontShowInAR: false
-        },
-        {
-            path: "models/hall_empty.dat",
-            index: -1,
-            dontShowInAR: true
-        },
-    ];
     let gRayHit = [0, 0];
     let gRayHitModel = [-1, -1];
 
@@ -360,6 +343,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Listen for the sessions 'end' event so we can respond if the user
         // or UA ends the session for any reason.
         session.addEventListener('end', onSessionEnded);
+        
+        session.addEventListener('select', onSelect);
 
         gl = arOsgMod.preinitializedWebGLContext;
 
@@ -418,6 +403,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         arOsg = null;
     }
 	
+	function onSelect(event) {
+        let inputPose = event.frame.getInputPose(event.inputSource, xrRefSpace);
+        if (!inputPose) {
+            return;
+        }
+	}
+	
     // Called every time the XRSession requests that a new frame be drawn.
     function onXRFrame(t, frame) {
         let session = frame.session;
@@ -445,19 +437,36 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
         // One-time init.
         if (arOsg === null) {
-            arOsg = arOsgMod.ccall('arOSGInit', 'number', ['number'], [models.length]);
+            arOsg = arOsgMod.ccall('arOSGInit', 'number', ['number'], [machines.length + 1]);
             console.log('arOsg: 0x' + arOsg.toString(16));
 
             console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
             arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
 
             // Load models.
-            for (const model of models) {
-                if (haveAR && model.dontShowInAR) continue;
-                model.index = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, model.path]);
-                if (model.index < 0) console.error('Error loading model \'' + model.path + '\'.');
-                else console.log('Loaded model \'' + model.path + '\' with index ' + model.index + '.');
+            for (const i of machines) {
+                i.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, i.modelpath]);
+                if (i.modelindex < 0) {
+                    console.error('Error loading model \'' + i.path + '\'.');
+                } else {
+                    console.log('Loaded model \'' + i.modelpath + '\' with index ' + i.modelindex + '.');
+                    
+                    // Set model orientation and position in scene.
+                    let modelq = quat.create();
+                    quat.setAxisAngle(modelq, [i.orientation[1], i.orientation[2], i.orientation[3]], glMatrix.toRadian(i.orientation[0]));
+                    let modelpose = mat4.create();
+                    mat4.fromRotationTranslation(modelpose, modelq, i.position);
+                    
+                    let m = _arrayToHeap(arOsgMod, modelpose);
+                    arOsgMod.ccall('arOSGSetModelPosef', 'number', ['number', 'number'], [arOsg, i.modelindex, m.byteOffset]);
+                    _deleteHeap(arOsgMod, m);
+                }   
             }
+            if (!haveAR) {
+                machine_hall.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, machine_hall.modelpath]);
+                if (machine_hall.modelindex < 0) console.error('Error loading model \'' + machine_hall.modelpath + '\'.');
+                else console.log('Loaded model \'' + machine_hall.modelpath + '\' with index ' + machine_hall.modelindex + '.');
+            }                
         }
 
         // Get the XRDevice pose relative to the Frame of Reference we created
@@ -500,6 +509,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                 // Turn off outline on previous model.
                                 //console.log('Disabling outline on model ' +  gRayHitModel[i]);
                                 arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
+                                // Turn off text label.
+                                arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, gRayHitModel[i], '']);
                                 gRayHit[i] = 0;
                             }
                         } else { // rayHit === 1
@@ -507,6 +518,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                 // Turn on outline on new model.
                                 //console.log('Enabling outline on model ' +  rayHitModel);
                                 arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                // Turn on text label.
+                                arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, rayHitModel, machines[rayHitModel].type]);
                                 gRayHit[i] = 1;
                                 gRayHitModel[i] = rayHitModel;
                             } else { // gRayHit[i] === 1
@@ -515,6 +528,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                                     //console.log('Moving outline from model ' + gRayHitModel[i] + ' to model ' + rayHitModel);
                                     arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
                                     arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                    // Move labels.
+                                    arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, gRayHitModel[i], '']);
+                                    arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, rayHitModel, machines[rayHitModel].type]);
                                     gRayHitModel[i] = rayHitModel;
                                 }
                             }

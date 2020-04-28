@@ -4,19 +4,25 @@
             "machineid": 1,
             "type": "Bin Mixer",
             "serial": 4301224,
-            "modelpath": "models/binmixer.dat"
+            "modelpath": "models/binmixer.dat",
+            "position": [0.0, 0.0, -3.0],
+            "orientation": [0.0, 1.0, 0.0, 0.0]
         },
         {
             "machineid": 2,
             "type": "Chiller",
             "serial": 500402,
-            "modelpath": "models/chiller.dat"
+            "modelpath": "models/chiller.dat",
+            "position": [-3.0, 0.0, 0.0],
+            "orientation": [90.0, 0.0, 1.0, 0.0]
         },
         {
             "machineid": 3,
             "type": "Turbogenerator",
             "serial": 110101,
-            "modelpath": "models/turbogenerator.dat"
+            "modelpath": "models/turbogenerator.dat",
+            "position": [3.0, 0.0, 0.0],
+            "orientation": [-90.0, 0.0, 1.0, 0.0]
         }
     ]
 }

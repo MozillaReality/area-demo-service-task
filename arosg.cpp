@@ -55,6 +55,7 @@
 #include <osg/TextureRectangle>
 #include <osgDB/FileNameUtils>
 #include <osgUtil/Optimizer>
+#include <osgText/Text>
 #if ARX_TARGET_PLATFORM_IOS || ARX_TARGET_PLATFORM_ANDROID || defined(__EMSCRIPTEN__)
 #  include "osgPlugins.h"
 #endif
@@ -76,6 +77,11 @@
 #define AR_OSG_NODE_MASK_SELECTABLE 0x02
 
 class Logger;
+
+// Debugging hint. To get more log detail from OSG, wrap the call with these directives:
+// osg::setNotifyLevel(osg::DEBUG_INFO);
+// (OSG call here)
+// osg::setNotifyLevel(osg::NOTICE);
 
 struct _AROSG {
     osg::ref_ptr<osgViewer::Viewer> viewer;
@@ -100,6 +106,7 @@ struct _AROSG {
     EMSCRIPTEN_WEBGL_CONTEXT_HANDLE webGLCtx;
 #endif
     Logger *logger;
+    osg::ref_ptr<osgText::Font> font;
 };
 
 static const std::string imageExtensions[] = {
@@ -1447,4 +1454,57 @@ extern "C" {
         return 1;
     }
     
+    int AR_OSG_EXTDEF arOSGSetModelLabel(AROSG *arOsg, const int index, const char *labelText)
+    {
+        if (!arOsg) return (-1);
+        if (index < 0 || index >= arOsg->maxModels) return (-1);
+        if (!arOsg->models[index]) {
+            ARLOGe("Error: model not found while attempting to set model label.\n");
+            return (-1);
+        }
+        
+        // Check if existing label already in place.
+        // First get the local pose transform. Then check for a second child.
+        osg::ref_ptr<osg::MatrixTransform> localTransform = static_cast<osg::MatrixTransform *>(arOsg->models[index]->getChild(0));
+        osg::ref_ptr<osg::Geode> geode;
+        if (localTransform->getNumChildren() > 1) {
+            geode = localTransform->getChild(1)->asGeode();
+        }
+        
+        if (!labelText || !labelText[0]) {
+            // Remove existing label.
+            if (geode.valid()) localTransform->removeChild(1);
+        } else {
+            if (!arOsg->font.valid()) {
+                arOsg->font = osgText::readFontFile("fonts/Vera.ttf");
+                if (!arOsg->font) arOsg->font = osgText::Font::getDefaultFont();
+            }
+            if (!geode.valid()) {
+                geode = new osg::Geode;
+                localTransform->addChild(geode);
+            } else {
+                geode->removeDrawables(0, geode->getNumDrawables());
+            }
+
+            const osg::BoundingSphere& bs = localTransform->getBound();
+            osg::Vec3 center = bs.center();
+            float radius = bs.radius();
+            osg::Vec3 pos(center.x(), center.y() + radius, center.z());
+            //ARLOGi("Setting label '%s' at position {%f, %f, %f}\n", labelText, pos.x(), pos.y(), pos.z());
+
+            osg::ref_ptr<osgText::Text> text = new osgText::Text;
+            //text->setDataVariance(osg::Object::DYNAMIC)
+            text->setFont(arOsg->font.get());
+            text->setCharacterSize(0.12f);
+            text->setPosition(pos);
+            text->setAxisAlignment(osgText::Text::XY_PLANE);
+            text->setText(labelText);
+            text->setBackdropType(osgText::Text::BackdropType::DROP_SHADOW_BOTTOM_RIGHT);
+            text->setAlignment(osgText::Text::AlignmentType::CENTER_BOTTOM_BASE_LINE);
+            text->setMaximumWidth(radius * 2.0f);
+            text->setLineSpacing(0.2f);
+            geode->addDrawable(text);
+        }
+        return (1);
+    }
 } // extern "C"

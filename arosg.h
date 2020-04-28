@@ -756,6 +756,7 @@ AR_OSG_EXTERN     void arOSGHideRay(AROSG *arOsg, int ray);
 */
 AR_OSG_EXTERN     int arOSGGetRayHit(AROSG *arOsg, int ray, float pos[3], float norm[3], int *modelIndexPtr);
 
+AR_OSG_EXTERN     int arOSGSetModelLabel(AROSG *arOsg, const int index, const char *labelText);
 #ifdef __cplusplus
 }
 #endif

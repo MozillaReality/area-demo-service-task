@@ -13,10 +13,13 @@ emcc \
 ${OPTIONS} \
 -Wl,--no-check-features \
 --preload-file models \
+--preload-file fonts \
+--preload-file shaders \
 -I../osg-wasm/build-wasm/openscenegraph-3.7.0-wasm/include \
 -L../osg-wasm/build-wasm/openscenegraph-3.7.0-wasm/lib \
 -L../osg-wasm/build-wasm/openscenegraph-3.7.0-wasm/lib/osgPlugins-3.7.0 \
 -losgViewer \
+-losgText \
 -losgDB \
 -losgdb_osg \
 -losgdb_gltf \
@@ -24,6 +27,8 @@ ${OPTIONS} \
 -losgdb_png \
 -losgdb_rgb \
 -losgdb_ktx \
+-losgdb_glsl \
+-losgdb_freetype \
 -losgdb_deprecated_osg \
 -losgdb_deprecated_osganimation \
 -losgdb_serializers_osg \
@@ -33,7 +38,6 @@ ${OPTIONS} \
 -losgFX \
 -losgSim \
 -losgTerrain \
--losgText \
 -losgVolume \
 -losgUtil \
 -losg \
