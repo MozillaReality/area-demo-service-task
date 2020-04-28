@@ -7,8 +7,15 @@ OPTIONS="${OPTIONS} -s FULL_ES2=1 -s FULL_ES3=1"
 OPTIONS="${OPTIONS} -s MIN_WEBGL_VERSION=2 -s MAX_WEBGL_VERSION=2"
 OPTIONS="${OPTIONS} -s GL_PREINITIALIZED_CONTEXT=1"
 OPTIONS="${OPTIONS} -s ENVIRONMENT=web,worker -s EXPORT_ES6=1 -s MODULARIZE=1 -s EXTRA_EXPORTED_RUNTIME_METHODS=['ccall','cwrap']"
+
+# To get debug log output at runtime, add the line below:
+#-DDEBUG \
+# To get source line numbers, set -g4 and a value for --source-map-base:
+#-g4 --source-map-base "https://localhost/app_directory/" \
+
 emcc \
 -v \
+-g3 \
 -o arosg.js \
 ${OPTIONS} \
 -Wl,--no-check-features \

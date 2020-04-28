@@ -41,7 +41,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         <option value="">Choose a worker...</option>
     </select>
 	<select id="assigned_services">
-        <option value="">Choose an assigned service...</option>
     </select>
 	</>
 	<p id="button">
@@ -136,26 +135,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	function onWorkerChanged() {
 	    let o = document.getElementById('workers');
-	    if (o.selectedIndex == 0) return;
+	    if (o.selectedIndex == 0) return; // Index 0 is the prompt.
         worker = o.options[o.selectedIndex].value;
-        let ht = '';
+        console.log('worker=' + worker);
+        let ht = '<option value="">Choose an assigned service...</option>\n';
         for (let i of assigned_services) {
             if (i.workerid == worker) {
-                ht += '<option value="' + i.taskid + '">' + htmlEntities(machines[i.machineid].type + ': ' + services[i.serviceid].name) + '</option>\n';
+                ht += '<option value="' + i.taskid + '">' + htmlEntities(machines.find(el => el.machineid == i.machineid).type + ': ' + services.find(el => el.serviceid == i.serviceid).name) + '</option>\n';
             }
         }
-        document.getElementById('assigned_services').innerHTML += ht;
+        document.getElementById('assigned_services').innerHTML = ht;
+        assigned_service = 0;
 	}
 	
 	function onAssignedServiceChanged() {
 	    let o = document.getElementById('assigned_services');
-	    if (o.selectedIndex == 0) return;
-	    assigned_service = assigned_services[o.options[o.selectedIndex].value];
-	    console.log(assigned_service);
-	    machine = machines[assigned_service.machineid];
-	    service = services[assigned_service.serviceid];
-	    service_step = 0;
-	    console.log('Set machine=',machine, ', service=', service);
+	    if (o.selectedIndex == 0) return; // Index 0 is the prompt.
+	    assigned_service = o.options[o.selectedIndex].value;
+	    console.log('assigned_service=' + assigned_service);
+	    for (let i of assigned_services) {
+	        if (i.taskid == assigned_service) {
+	            machine = machines.find(el => el.machineid == i.machineid);
+	            service = services.find(el => el.serviceid == i.serviceid);
+	            service_step = 0;
+	            console.log('Initated machine=', machine, ', service=', service);
+	        }
+	    }
 	}
 	
 	//
@@ -404,9 +409,32 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     }
 	
 	function onSelect(event) {
-        let inputPose = event.frame.getInputPose(event.inputSource, xrRefSpace);
-        if (!inputPose) {
+        let inputSources = event.frame.session.inputSources;
+        let i = 0;
+        for (i = 0; i < inputSources.length; i++) {
+            if (inputSources[i] === event.inputSource) break;
+        }
+        if (i == inputSources.length) {
             return;
+        }
+        if (gRayHit[i]) {
+            // Click is on a model.
+            let message = '';
+            if (assigned_service == 0) {
+                message += 'NO SERVICE ASSIGNED';
+            } else if (gRayHitModel[i] != machine.modelindex) {
+                message += 'NOT ASSIGNED TO THIS SERVICE';
+            } else {
+                message += machine.type + '\n' + service.name;
+                // Check if not already done last step.
+                if (service_step >= service.steps.length) {
+                    message += '\nDONE';
+                } else {
+                    message += '\n' + service.desc + '\nStep ' + (service_step+1) + ': ' + service.steps[service_step];
+                    service_step++;
+                }
+            }
+            arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, gRayHitModel[i], message]);
         }
 	}
 	
