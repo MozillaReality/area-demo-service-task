@@ -56,6 +56,7 @@
 #include <osgDB/FileNameUtils>
 #include <osgUtil/Optimizer>
 #include <osgText/Text>
+#include <osg/ComputeBoundsVisitor>
 #if ARX_TARGET_PLATFORM_IOS || ARX_TARGET_PLATFORM_ANDROID || defined(__EMSCRIPTEN__)
 #  include "osgPlugins.h"
 #endif
@@ -1486,14 +1487,16 @@ extern "C" {
                 geode->removeDrawables(0, geode->getNumDrawables());
             }
 
-            const osg::BoundingSphere& bs = localTransform->getBound();
-            osg::Vec3 center = bs.center();
-            float radius = bs.radius();
-            osg::Vec3 pos(center.x(), center.y() + radius, center.z());
-            //ARLOGi("Setting label '%s' at position {%f, %f, %f}\n", labelText, pos.x(), pos.y(), pos.z());
-
+            osg::ComputeBoundsVisitor cbv;
+            localTransform->accept(cbv);
+            osg::BoundingBox bb = cbv.getBoundingBox(); // in local coords.
+            float width = bb.xMax() - bb.xMin();
+            float height = bb.yMax() - bb.yMin();
+            float depth = bb.zMax() - bb.zMin();
+            osg::Vec3 center(bb.xMin() + width/2.0f, bb.yMin() + height/2.0f, bb.zMin() + depth/2.0f);
+            osg::Vec3 pos(center.x(), center.y() + height/2.0f + 0.2f, center.z());
+            
             osg::ref_ptr<osgText::Text> text = new osgText::Text;
-            //text->setDataVariance(osg::Object::DYNAMIC)
             text->setFont(arOsg->font.get());
             text->setCharacterSize(0.12f);
             text->setPosition(pos);
@@ -1501,7 +1504,7 @@ extern "C" {
             text->setText(labelText);
             text->setBackdropType(osgText::Text::BackdropType::DROP_SHADOW_BOTTOM_RIGHT);
             text->setAlignment(osgText::Text::AlignmentType::CENTER_BOTTOM_BASE_LINE);
-            text->setMaximumWidth(radius * 2.0f);
+            text->setMaximumWidth(width);
             text->setLineSpacing(0.2f);
             geode->addDrawable(text);
         }
