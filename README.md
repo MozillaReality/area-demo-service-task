@@ -1,3 +1,16 @@
+## Using this application
+
+
+## Building from source
+
+### Installing OpenSceneGraph for WebAssembly
+
+Download the compiled OpenSceneGraph for WebAssembly package from https://github.com/MozillaReality/OpenSceneGraph/releases/download/OpenSceneGraph-3.7.0-wasm%2Bmozilla-gltf/openscenegraph-3.7.0-wasm+mozilla-gltf.zip.
+
+### Compiling AROSG.
+
+./build.sh
+
 ## WebAssembly requirements
 
 While WebAssembly itself is supported on all WebXR-capable browsers, OpenSceneGraph assumes availability of threading and so must (at present) be built with WebAssembly's threads support enabled. Unfortunately, WebAssembly threads depends in turn on Javascript's `SharedArrayBuffer` type, which was disabled by default in most browsers to mitigate the "Spectre" attacks. While `SharedArrayBuffer` is being gradually re-enabled by default, your browser might need some help.
@@ -23,3 +36,10 @@ Header set Cross-Origin-Opener-Policy: same-origin
 Header set Cross-Origin-Embedder-Policy: require-corp
 ```
 To serve these, you will need to ensure that your apache config also loads the "headers" module. For Apache2, check the config file (`/etc/apache2/httpd.conf` or similar) has the option `LoadModule headers_module libexec/apache2/mod_headers.so` uncommented and enabled.
+
+## Extensions and what contributions we'd encourage:
+
+### Controller models
+The WebXR input profiles repository includes modules to allow selection and display of the appropriate 3D model for the user
+s controller(s). https://github.com/immersive-web/webxr-input-profiles/
+
