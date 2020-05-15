@@ -98,7 +98,7 @@ OUT="arosg.js"
 # because wasm has only static linking, the OSG macro to statically load the
 # plugin will need to be added to "osgPlugins.h".
 OSG_VERSION="3.7.0"
-OSG_ROOT="../osg-wasm/build-wasm/openscenegraph-3.7.0-wasm"
+OSG_ROOT="${OURDIR}/dependencies/openscenegraph-3.7.0-wasm"
 OSG_LIBS="\
 osgViewer \
 osgText \

@@ -11,30 +11,16 @@
 	<title>AREA - Service Task Demo</title>
 </head>
 <!--
-Copyright 2018 The Immersive Web Community Group
+This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0.
+If a copy of the MPL was not distributed with this file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of
-this software and associated documentation files (the "Software"), to deal in
-the Software without restriction, including without limitation the rights to
-use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
-the Software, and to permit persons to whom the Software is furnished to do so,
-subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
-FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
-COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
-IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+Copyright (c) 2020, Mozilla.
+Author(s): Philip Lamb
 -->
 <body>
 <header>
-	Service Task Demo 
-	<p id="prompt">
-		Choose a worker and assigned task, then click the button to enter XR.
+	<h1>Service Task Demo</h1>
+	<p id="prompt">Loading...
 	</p>
 	<p>
 	<select id="workers">
@@ -47,13 +33,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	</p>
 	<p id="native">
 	</p>
-	<p>Last modified: <span id="modified">unknown</span>
+	<p><small>Last modified: <span id="modified">unknown</span></small>
 	</p>
 </header>
 <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()" tabindex="-1" style="border: 0px none;background-color: black">
 </canvas>
 <script type="module">
-    // SharedArrayBuffer is required.
+    // SharedArrayBuffer is required. Test for it, and if not found, tell
+    // the user how to enable it and bail out.
     try {
         let test = new SharedArrayBuffer(1);
     } catch(error) {
@@ -61,6 +48,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         throw error;
     }
 
+    // Imports.
+    // arosg.js contains the loader and glue-code for the WebAssembly module
+    // which includes our graphics code, plus linked OpenSceneGraph.
+    // We also use WebXRButton from the Immersive Web Working Group examples,
+    // a utility module for query-string parsing, and the gl-matrix utility
+    // for any Javascript-side matrix manipulations.
 	import Module from './arosg.js'
 	import {WebXRButton} from './js/util/webxr-button.js';
 	import {QueryArgs} from './js/util/query-args.js';
@@ -75,12 +68,13 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	} else {
 	    document.getElementById("native").innerHTML = 'Using native WebXR. <a href="?usePolyfill=1">Toggle</a>';
 	}
-	
+
 	let modDateTime = new Date(document.lastModified);
 	document.getElementById("modified").innerHTML = modDateTime.toLocaleTimeString(navigator.language) + ' ' + modDateTime.toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'});
 	
 	//
-	// Set up worker/assigned service selection.
+	// Set up worker/assigned service selection. These are read from a local
+	// database, but this really ought to be read from a dynamic database.
 	//
 	
 	function fetchJSON(uri) {
@@ -102,7 +96,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	let services = {};
 	let assigned_services = {};
 	
-	// These hold the current state.
+	// These hold the current state during app execution.
 	let worker = 0;
 	let assigned_service = 0;
 	let machine = 0;
@@ -164,9 +158,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	}
 	
 	//
-	// Set up OSG.
+	// Set up OpenSceneGraph.
 	//
 	
+	// _arrayToHeap (and _deleteHeap) allow us to pass blocks of memory
+	// to WebAssembly, for passing arrays or for use as output parameters
+	// in native code.
 	function _arrayToHeap(Module, typedArray) {
 	    let numBytes = typedArray.length * typedArray.BYTES_PER_ELEMENT;
 	    let ptr = Module._malloc(numBytes);
@@ -179,6 +176,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	    Module._free(heapBytes.byteOffset);
 	}
 
+    // A convenience function to wait on a predicate.
     function waitFor(conditionFunction) {
         const poll = resolve => {
             if (conditionFunction()) resolve();
@@ -187,6 +185,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         return new Promise(poll);
     }
 
+    // TODO: replace the document's static canvas with an allocated one.
+    // Currently some bug prevents a dynamically allocated canvas being used in
+    // WebAssembly and WebXR. Fixes for this issue welcomed.
 //     function createCanvas() {
 //         let webglCanvas = document.createElement('canvas');
 //         //webglCanvas.setAttribute('id', 'canvas');
@@ -226,6 +227,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	        const version = arOsgMod.ccall('arOSGGetVersion', 'number');
 	        console.log('arOSG version 0x' + version.toString(16) + '.');
 	        arOsgReady = true;
+	        
+	        document.getElementById("prompt").innerHTML = "Choose a worker and assigned task, then click the button to enter XR."
 	    }
 	};
 	
@@ -250,6 +253,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 	
 	// Create a WebGL context to render with, initialized to be compatible
 	// with the XRDisplay we're presenting to.
+	// Our outline technique needs a stencil buffer.
 	let glAttribs = {xrCompatible: true, alpha: true, depth:true, stencil: true, antialias: true};
 	// WebGL 2 in wasm uses SharedArrayBuffer, which is incompatible with the polyfill.
 	if (!QueryArgs.getBool('usePolyfill', true)) glAttribs.webgl2 = true;
@@ -269,15 +273,19 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     // Renderer globals.
     let gl = null;
-    let arOsg = null; // Holds the instance pointer.
-    let gRayHit = [0, 0];
-    let gRayHitModel = [-1, -1];
+    let arOsg = null; // Holds the instance pointer to our scene graph.
+    let gRayHit = [0, 0]; // Whether our rays are touching a model (1) or not (0).
+    let gRayHitModel = [-1, -1]; // If so, the index of the model.
 
     // Checks to see if WebXR is available and, if so, queries a list of
     // XRDevices that are connected to the system.
+    // This will attempt an immersive AR session, and fall back to an
+    // immersive VR session if AR is not available.
     function initXR() {
         // Adds a helper button to the page that indicates if any XRDevices are
         // available and lets the user pick between them if there are multiple.
+        // The button won't be enabled until the WebAssembly module is loaded
+        // and initialised.
         xrButton = new WebXRButton({
             onRequestSession: (() => onRequestSession('immersive-ar')),
             onEndSession: onEndSession,
@@ -321,6 +329,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // will request an exclusive session from that device.
     function onRequestSession(sessionType) {
         console.log('Requesting an ' + sessionType + ' session.');
+        document.getElementById("prompt").innerHTML = "Initalising service task session..."
 	    return navigator.xr.requestSession(sessionType).then(onSessionStarted);
 	}
 
@@ -337,6 +346,45 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         if (arOsgMod.softwareWebGL) glInfo += ' (software)';
         return glInfo;
     }
+	
+	// One-time scene setup that requires an active GL context.
+	function initScene() {
+	    // Request a new scenegraph instance. We pass the maximum number of models we intend to load.
+        arOsg = arOsgMod.ccall('arOSGInit', 'number', ['number'], [machines.length + 1]);
+        console.log('arOsg: 0x' + arOsg.toString(16));
+
+        // When first called, arOSGHandleReshape2 actually instantiates the
+        // OpenSceneGraph viewer.
+        console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
+        arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
+
+        // Load models.
+        for (const i of machines) {
+            i.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, i.modelpath]);
+            if (i.modelindex < 0) {
+                console.error('Error loading model \'' + i.path + '\'.');
+            } else {
+                console.log('Loaded model \'' + i.modelpath + '\' with index ' + i.modelindex + '.');
+                
+                // Set initial model orientation and position in scene.
+                let modelq = quat.create();
+                quat.setAxisAngle(modelq, [i.orientation[1], i.orientation[2], i.orientation[3]], glMatrix.toRadian(i.orientation[0]));
+                let modelpose = mat4.create();
+                mat4.fromRotationTranslation(modelpose, modelq, i.position);
+                
+                let m = _arrayToHeap(arOsgMod, modelpose);
+                arOsgMod.ccall('arOSGSetModelPosef', 'number', ['number', 'number'], [arOsg, i.modelindex, m.byteOffset]);
+                _deleteHeap(arOsgMod, m);
+            }   
+        }
+        
+        // If not an AR device, load a virtual space in which to display the machines.
+        if (!haveAR) {
+            machine_hall.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, machine_hall.modelpath]);
+            if (machine_hall.modelindex < 0) console.error('Error loading model \'' + machine_hall.modelpath + '\'.');
+            else console.log('Loaded model \'' + machine_hall.modelpath + '\' with index ' + machine_hall.modelindex + '.');
+        }                
+	}
 	
     // Called when we've successfully acquired a XRSession. In response we
     // will set up the necessary session state and kick off the frame loop.
@@ -356,6 +404,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         console.log(getGpuInfo());
 
         // Here init renderer and GPU resources.
+        initScene();
 
         // Use the new WebGL context to create a XRWebGLLayer and set it as the
         // sessions baseLayer. This allows any content rendered to the layer to
@@ -388,11 +437,22 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
                 session.requestAnimationFrame(onXRFrame);
             });
         });
+        document.getElementById("prompt").innerHTML = "Service task started."
     }
 	
-	      // Called when the user clicks the 'Exit XR' button. In response we end
-	      // the session.
+	// One-time scene clean up that requires an active GL context.
+	function finaliseScene() {
+        arOsgMod.ccall('arOSGFinal', null, ['number'], [arOsg]);
+        arOsg = null;
+	}
+
+	// Called when the user clicks the 'Exit XR' button. In response we end
+	// the session.
     function onEndSession(session) {
+    
+        // Clean up our scenegraph before the WebGL context goes away.
+        finaliseScene();
+        
         session.end();
     }
 	
@@ -401,13 +461,14 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
     // At this point the session object is no longer usable and should be
     // discarded.
     function onSessionEnded(event) {
+        // Here we should discard the WebGL context too.
         xrButton.setSession(null);
-    
-        // Here should discard the WebGL context too.
-        arOsgMod.ccall('arOSGFinal', null, ['number'], [arOsg]);
-        arOsg = null;
+        document.getElementById("prompt").innerHTML = "Service task session ended. Choose again to restart."
     }
 	
+	// Handle WebXR "select" events.
+	// Here we perform the simple app logic of displaying then next step of
+	// any active service task, if the user has clicked on an assigned machine.
 	function onSelect(event) {
         let inputSources = event.frame.session.inputSources;
         let i = 0;
@@ -438,41 +499,6 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         }
 	}
 	
-	function initScene() {
-        arOsg = arOsgMod.ccall('arOSGInit', 'number', ['number'], [machines.length + 1]);
-        console.log('arOsg: 0x' + arOsg.toString(16));
-
-        console.log('Will init OSG with ' + arOsgMod.canvas.width + 'x' + arOsgMod.canvas.height + ' canvas.');
-        arOsgMod.ccall('arOSGHandleReshape2', null, ['number', 'number', 'number', 'number', 'number'], [arOsg, 0, 0, arOsgMod.canvas.width, arOsgMod.canvas.height]);
-
-        // Load models.
-        for (const i of machines) {
-            i.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, i.modelpath]);
-            if (i.modelindex < 0) {
-                console.error('Error loading model \'' + i.path + '\'.');
-            } else {
-                console.log('Loaded model \'' + i.modelpath + '\' with index ' + i.modelindex + '.');
-                
-                // Set initial model orientation and position in scene.
-                let modelq = quat.create();
-                quat.setAxisAngle(modelq, [i.orientation[1], i.orientation[2], i.orientation[3]], glMatrix.toRadian(i.orientation[0]));
-                let modelpose = mat4.create();
-                mat4.fromRotationTranslation(modelpose, modelq, i.position);
-                
-                let m = _arrayToHeap(arOsgMod, modelpose);
-                arOsgMod.ccall('arOSGSetModelPosef', 'number', ['number', 'number'], [arOsg, i.modelindex, m.byteOffset]);
-                _deleteHeap(arOsgMod, m);
-            }   
-        }
-        
-        // If not an AR device, load a virtual space in which to display the machines.
-        if (!haveAR) {
-            machine_hall.modelindex = arOsgMod.ccall('arOSGLoadModel', 'number', ['number', 'string'], [arOsg, machine_hall.modelpath]);
-            if (machine_hall.modelindex < 0) console.error('Error loading model \'' + machine_hall.modelpath + '\'.');
-            else console.log('Loaded model \'' + machine_hall.modelpath + '\' with index ' + machine_hall.modelindex + '.');
-        }                
-	}
-	
     // Called every time the XRSession requests that a new frame be drawn.
     function onXRFrame(t, frame) {
         let session = frame.session;
@@ -480,6 +506,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
         // Inform the session that we're ready for the next frame.
         session.requestAnimationFrame(onXRFrame);
 
+        // Sanity checks.
         if (gl === null) {
             console.error('onXRFrame: gl is null.');
             return;
@@ -489,16 +516,15 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
             console.error('onXRFrame: glLayer is null.');
             return;
         }
+        if (arOsg === null) {
+            console.error('onXRFrame: arOsg is null.');
+            return;
+        }
 
         // If we do have a valid pose, bind the WebGL layer's framebuffer,
         // which is where any content to be displayed on the XRDevice must be
         // rendered.
         gl.bindFramebuffer(gl.FRAMEBUFFER, glLayer.framebuffer);
-
-        // One-time init.
-        if (arOsg === null) {
-            initScene();
-        }
 
         // Get the XRDevice pose relative to the Frame of Reference we created
         // earlier.
