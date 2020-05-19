@@ -145,7 +145,7 @@ Header set Cross-Origin-Embedder-Policy: require-corp
 ```
 To serve these, you will need to ensure that your apache config also loads the "headers" module. For Apache2, check the config file (`/etc/apache2/httpd.conf` or similar) has the option `LoadModule headers_module libexec/apache2/mod_headers.so` uncommented and enabled.
 
-## Extensions and what contributions we'd encourage:
+## Extensions and contributions welcomed:
 
 ### Dynamic loading of users & service tasks
 

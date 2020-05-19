@@ -228,7 +228,7 @@ Author(s): Philip Lamb
 	        console.log('arOSG version 0x' + version.toString(16) + '.');
 	        arOsgReady = true;
 	        
-	        document.getElementById("prompt").innerHTML = "Choose a worker and assigned task, then click the button to enter XR."
+	        document.getElementById("prompt").innerHTML = "Choose a worker and assigned task, then click the button to enter XR.";
 	    }
 	};
 	
@@ -329,7 +329,7 @@ Author(s): Philip Lamb
     // will request an exclusive session from that device.
     function onRequestSession(sessionType) {
         console.log('Requesting an ' + sessionType + ' session.');
-        document.getElementById("prompt").innerHTML = "Initalising service task session..."
+        document.getElementById("prompt").innerHTML = "Initalising service task session...";
 	    return navigator.xr.requestSession(sessionType).then(onSessionStarted);
 	}
 
@@ -437,7 +437,7 @@ Author(s): Philip Lamb
                 session.requestAnimationFrame(onXRFrame);
             });
         });
-        document.getElementById("prompt").innerHTML = "Service task started."
+        document.getElementById("prompt").innerHTML = "Service task started.";
     }
 	
 	// One-time scene clean up that requires an active GL context.
@@ -463,7 +463,7 @@ Author(s): Philip Lamb
     function onSessionEnded(event) {
         // Here we should discard the WebGL context too.
         xrButton.setSession(null);
-        document.getElementById("prompt").innerHTML = "Service task session ended. Choose again to restart."
+        document.getElementById("prompt").innerHTML = "Service task session ended. Choose again to restart.";
     }
 	
 	// Handle WebXR "select" events.
