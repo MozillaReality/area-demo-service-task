@@ -26,7 +26,54 @@ The `index.html` file contains the page layout, as well as application settings,
 
 The is only one possible configuration; equally, the main run loop could have been in the WebAssembly module (as if calling `main()` in a C program). The choice to keep the main loop in Javascript in this application was made to assist understanding of the interaction between WebXR and OpenSceneGraph.
 
+### Native code
 
+Native code used in the project is contained in a set of C/C++ files and libraries. These are compiled ahead-of-time to a WebAssembly module via the [`build.sh`](build.sh) build script.
+
+OpenSceneGraph (OSG) provides the core model loading and rendering in the application, the laser pointers, hit-testing, and rendering of label text and the highlight effect on the models. We use a version of OpenSceneGraph which has been pre-compiled to WebAssembly.
+
+To connect the Javascript portion of the app to the compiled OSG WebAssembly module, we borrowed and extended a library named AROSG from the [artoolkitX project](https://github.com/artoolkitx/artoolkitx). This library provides a set of C++ functions with a C wrapper to perform tasks like loading models and drawing the rays of the laser pointers. Full documentation for these interfaces can be seen in the `arosg.h` header file.
+
+* [`arosg.h`](arosg.h) - the main interfaces to the native code
+* [`arosg.cpp`](arosg.cpp) - implements a set of functions that provide us with abstractions to OpenSceneGraph functionality
+* [`ar_compat.h`](ar_compat.h) - a handful of macros normally found in artoolkitX
+* [`ar_compat.c`](ar_compat.c) - a handful of macros normally found in artoolkitX
+* [`mtx.h`](mtx.h) - utility functions to perform OpenGL-style matrix math
+* [`mtx.c`](mtx.c) - utility functions to perform OpenGL-style matrix math
+* [`osgPlugins.h`](osgPlugins.h) - macros to define which OpenSceneGraph plugins are to be linked statically into our application
+* [`shaders.h`](shaders.h) - define the shaders used by our OpenSceneGraph app.
+
+The `build.sh` build script compiles and links these (and from that point onwards, these native files are not required to be present on the web server). The result is contained in these files:
+
+* `arosg.wasm` - The compiled WebAssembly module
+* [`arosg.js`](arosg.js) - The script file loaded by the HTML page that is responsible for loading the WebAssembly module, as well as interop between Javascript and WebAssembly.
+* [`arosg.worker.js`](arosg.worker.js) - A script file loaded into worker threads in a multi-threaded WebAssembly environment.
+* `arosg.data` - Contains the virtual filesystem for the WebAssembly.
+
+### Models and other data used by native code
+
+WebAssembly provides a variety of different means for the native code to access files at runtime. In this application, we pre-pack files needed by the native code into a virtual file system. This step is done at compile time by passing the flag `--preload-file` to the wasm compiler.
+
+The files preloaded in this way include:
+
+- [`models/`](models/) - The 3D models used in the app, in glTF binary format (.glb).
+- [`fonts/`](fonts/) - The font(s) used by OSG to render in-scene.
+- [`shaders/`](shaders/) - Additional shaders require by OSG, in this case for the text rendering. Note that shaders we use directly are compiled into `shaders.h`.
+
+AROSG allows for the use of a text-based `.dat` file to specify some global transformations and settings to be applied to each model. This allows for easy scaling and positioning of models with different scales and/or origins or axes.
+
+Positioning of the models in the experience itself is expressed separately in the file [`data/machines.json`](data/machines.json) via OpenGL-style translation/rotation vectors.
+ 
+## Licenses
+
+[The license file](License) sets out the full license text.
+
+* The HTML+JS code is licensed under the MPL2.
+* The AROSG portions under the LGPLv3, and OpenSceneGraph under the OSGPL.
+
+All of these licenses are compatible with use in a proprietary and/or commercial application.
+
+The models of the machines are licensed for use only in association with this demonstration application. Users wishing to build on this application will need to separately license the models 
 
 ## Building from source
 
@@ -58,13 +105,15 @@ To see verbose buid output, add the parameter `--verbose`. To do a debug build (
 
 `bash ./build.sh --verbose --debug`
 
-This will result in these files being created:
+## Modifying the application
 
-* `arosg.wasm` - The compiled WebAssembly module
-* `arosg.js` - The script file loaded by the HTML page that is responsible for loading the WebAssembly module, as well as interop between Javascript and WebAssembly.
-* `arosg.worker.js` - A script file loaded into worker threads in a multi-threaded WebAssembly environment.
-* `arosg.data` - Contains the virtual filesystem for the WebAssembly.
+Adding new users, service tasks, or assigning service tasks can be easily accomplished by modifying the json files in the [`data/`](data/) directory.
 
+To add new machines, the accompanying model file will need to be added to the [`models`](models/) directory and pre-compiled into the WebAssembly. Then the model file can be listed in the [`data/machines.json`](data/machines.json) file. Note that each model .glb file must be accompanied by a .dat text file. Refer to one of the existing .dat files for an example of the format.
+
+To change the rendering itself, edit arosg.h/.cpp and recompile via build.sh.
+
+See below for areas for extension and addition.
 
 ## WebAssembly requirements
 
@@ -98,7 +147,14 @@ To serve these, you will need to ensure that your apache config also loads the "
 
 ## Extensions and what contributions we'd encourage:
 
-### Controller models
-The WebXR input profiles repository includes modules to allow selection and display of the appropriate 3D model for the user
-s controller(s). https://github.com/immersive-web/webxr-input-profiles/
+### Dynamic loading of users & service tasks
 
+At present, the JSON data files that define the users and service tasks are static files local to the server. These could be easily generated from a remote endpoint rather than being loaded from static files. The loading is in [`index.html` at around line 106](index.html#L106).
+
+### Dynamic loading of machine model data
+
+While the machines.json file could be generated dynamically, it refers to model files which are read by native code, so these need to be included in the filesystem accessible to WebAssembly. WebAssembly provides other filesystem implementations that allow for dynamically loading data at runtime.
+
+### Controller models
+
+he WebXR implementation does not at present render models for the device's hand controllers. The WebXR input profiles repository includes modules to allow selection and display of the appropriate 3D model for the user's controller(s). https://github.com/immersive-web/webxr-input-profiles/
