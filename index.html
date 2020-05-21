@@ -72,6 +72,11 @@ Author(s): Philip Lamb
 	let modDateTime = new Date(document.lastModified);
 	document.getElementById("modified").innerHTML = modDateTime.toLocaleTimeString(navigator.language) + ' ' + modDateTime.toLocaleDateString(navigator.language, {year: 'numeric', month: 'long', day: 'numeric'});
 	
+	// Until we can resolve the stencil rendering bug in Chrome, we need to
+	// detect it and disable in this case.
+	let UA = navigator.userAgent, isChrome=/\bChrome\/[0-9]+/.test(UA);
+	let useOutlineTechnique = !isChrome;
+	
 	//
 	// Set up worker/assigned service selection. These are read from a local
 	// database, but this really ought to be read from a dynamic database.
@@ -569,7 +574,7 @@ Author(s): Philip Lamb
                             if (gRayHit[i] !== 0) {
                                 // Turn off outline on previous model.
                                 //console.log('Disabling outline on model ' +  gRayHitModel[i]);
-                                arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
+                                if (useOutlineTechnique) arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
                                 // Turn off text label.
                                 arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, gRayHitModel[i], '']);
                                 gRayHit[i] = 0;
@@ -578,7 +583,7 @@ Author(s): Philip Lamb
                             if (gRayHit[i] === 0) {
                                 // Turn on outline on new model.
                                 //console.log('Enabling outline on model ' +  rayHitModel);
-                                arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                if (useOutlineTechnique) arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
                                 // Turn on text label.
                                 arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, rayHitModel, machines[rayHitModel].type]);
                                 gRayHit[i] = 1;
@@ -587,8 +592,10 @@ Author(s): Philip Lamb
                                 // Check for case where hit moved from one model to another.
                                 if (gRayHitModel[i] !== rayHitModel) {
                                     //console.log('Moving outline from model ' + gRayHitModel[i] + ' to model ' + rayHitModel);
-                                    arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
-                                    arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                    if (useOutlineTechnique) {
+                                        arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, gRayHitModel[i], 0, 0]);
+                                        arOsgMod.ccall('arOSGSetModelOutline', null, ['number', 'number', 'number', 'number'], [arOsg, rayHitModel, 3, 0]);
+                                    }
                                     // Move labels.
                                     arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, gRayHitModel[i], '']);
                                     arOsgMod.ccall('arOSGSetModelLabel', 'number', ['number', 'number', 'string'], [arOsg, rayHitModel, machines[rayHitModel].type]);
