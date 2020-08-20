@@ -106,7 +106,7 @@ struct _AROSG {
 #ifdef __EMSCRIPTEN__
     EMSCRIPTEN_WEBGL_CONTEXT_HANDLE webGLCtx;
 #endif
-    Logger *logger;
+    osg::ref_ptr<Logger> logger;
     osg::ref_ptr<osgText::Font> font;
 };
 
@@ -473,7 +473,6 @@ extern "C" {
         //if (arOsg->viewer.valid()) arOsg->viewer->unref();
         //if (arOsg->sg.valid()) arOsg->sg->unref();
         osg::setNotifyHandler(nullptr);
-        delete arOsg->logger;
         arOsg->logger = nullptr;
         free (arOsg->models);
         free (arOsg);
